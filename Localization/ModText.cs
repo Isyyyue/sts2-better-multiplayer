@@ -1,0 +1,310 @@
+using System.Globalization;
+
+namespace BetterMultiplayer.Localization;
+
+internal enum TextKey
+{
+    Close,
+    RoomMultiplayer,
+    RoomMultiplayerDescription,
+    Join,
+    Create,
+    JoinRoomDescription,
+    CreateRoomDescription,
+    RoomNamePlaceholder,
+    RoomPasswordPlaceholder,
+    RequiredPasswordPlaceholder,
+    JoinRoom,
+    CreateRoom,
+    RoomName,
+    RoomPassword,
+    SteamUnavailableJoin,
+    SearchingForRoom,
+    RoomNotFound,
+    RoomFull,
+    JoinFailed,
+    SteamUnavailableCreate,
+    CheckingRoom,
+    DuplicateRoom,
+    CreateFailed,
+    MultiplayerSaveUnavailable,
+    EnterRoomName,
+    EnterRoomPassword,
+    EnterRoomCredentials,
+    InvalidPassword,
+    SteamPlayer,
+    RestSiteTrade,
+    RestSiteTradeDescription,
+    GoldTrade,
+    GoldTradeTooltip,
+    TradeNetworkUnavailable,
+    SelectTradePartner,
+    RunUnavailable,
+    AlreadyTradedHere,
+    ReadyToTrade,
+    NotInTradeScreen,
+    Trade,
+    PlayerInvited,
+    NoOtherPlayers,
+    WaitingForPlayers,
+    TradeInviteReceived,
+    WaitingForInviteResponse,
+    Decline,
+    Accept,
+    CancelInvite,
+    TradePlayerLeft,
+    CancelTrade,
+    WithdrawConfirmation,
+    ConfirmTrade,
+    BothConfirmed,
+    WaitingForOtherConfirmation,
+    SyncingOffer,
+    WaitingForConfirmations,
+    YourOffer,
+    Confirmed,
+    NotConfirmed,
+    GoldOnHand,
+    CardsCount,
+    ChooseCard,
+    Relic,
+    ChooseRelic,
+    Potion,
+    ChoosePotion,
+    GoldYouOffer,
+    GoldTheyOffer,
+    GoldAmountPlaceholder,
+    ChooseItem,
+    SelectionCount,
+    Cancel,
+    ConfirmSelection,
+    ItemCannotBeTraded,
+    SelectionLimit,
+    SubmittingTrade,
+    TransactionId,
+    DoNotLeaveRun,
+    TradeComplete,
+    RestActionsRemain,
+    TradeAgain,
+    BackToRestSite,
+    TradeCanceled,
+    BackToPlayerList,
+    PlayerUnavailable,
+    GoldInputUnavailable,
+    SubmittingOffer,
+    PlayerFallback,
+    InvalidGoldAmount,
+    GoldAmountRange,
+    InvalidGoldOffer,
+    InvalidTradeLocation,
+    NegativeOfferAmount,
+    GoldOnlyAtMerchant,
+    ItemsNotAllowedAtMerchant,
+    OfferLimitExceeded,
+    OfferedItemMissing,
+    BoundCurseNotTradable,
+    RelicNotTradable,
+    PotionCannotBeRemoved,
+    OfferedPotionMissing,
+    NoGoldOffered,
+    NoItemsOffered,
+    NotEnoughPotionSlots,
+    DuplicateRelicAfterTrade,
+    PartnerNotAtTradeScreen,
+    RestSiteTradeAlreadyUsed,
+    PlayerAlreadyTrading,
+    TradeInviteExpired,
+    PlayerNotFound,
+    InvalidOffer,
+    OfferChanged,
+    GoldBalanceChanged,
+    APlayerAlreadyTradedHere,
+    HostTradeApplyFailed,
+    TradeSessionEnded,
+    InvalidTradeRequest,
+    TradeSyncFailed,
+    AssistSmithName,
+    AssistSmithDescription,
+    AssistSmithPlayerLeft,
+    AssistSmithPlayerDisconnected,
+    AssistSmithOtherPlayersOnly,
+    AssistSmithDeckChanged,
+    AssistSmithCardNotUpgradable
+}
+
+internal static class ModText
+{
+    private const string TokenPrefix = "@bettermp:";
+    private static string _language = "eng";
+
+    private static readonly IReadOnlyDictionary<TextKey, (string Zh, string En)> Strings =
+        new Dictionary<TextKey, (string Zh, string En)>
+        {
+            [TextKey.Close] = ("关闭", "Close"),
+            [TextKey.RoomMultiplayer] = ("房间联机", "Private Rooms"),
+            [TextKey.RoomMultiplayerDescription] = ("通过房间名称和密码联机", "Join with a room name and password"),
+            [TextKey.Join] = ("加入", "Join"),
+            [TextKey.Create] = ("创建", "Create"),
+            [TextKey.JoinRoomDescription] = ("通过房间名称和密码联机", "Enter a room name and password"),
+            [TextKey.CreateRoomDescription] = ("创建房间并选择官方游戏模式", "Create a room, then choose a game mode"),
+            [TextKey.RoomNamePlaceholder] = ("输入房间名称", "Enter room name"),
+            [TextKey.RoomPasswordPlaceholder] = ("输入房间密码", "Enter room password"),
+            [TextKey.RequiredPasswordPlaceholder] = ("必须设置密码", "Password required"),
+            [TextKey.JoinRoom] = ("加入房间", "Join Room"),
+            [TextKey.CreateRoom] = ("创建房间", "Create Room"),
+            [TextKey.RoomName] = ("房间名称", "Room Name"),
+            [TextKey.RoomPassword] = ("房间密码", "Password"),
+            [TextKey.SteamUnavailableJoin] = ("Steam 尚未初始化，无法加入房间。", "Steam is not ready. The room cannot be joined."),
+            [TextKey.SearchingForRoom] = ("正在查找房间……", "Finding room..."),
+            [TextKey.RoomNotFound] = ("房间不存在或密码错误。", "Room not found or password incorrect."),
+            [TextKey.RoomFull] = ("房间人数已满。", "The room is full."),
+            [TextKey.JoinFailed] = ("加入失败，请确认 Steam 在线后重试。", "Could not join. Make sure Steam is online, then try again."),
+            [TextKey.SteamUnavailableCreate] = ("Steam 尚未初始化，无法创建房间。", "Steam is not ready. A room cannot be created."),
+            [TextKey.CheckingRoom] = ("正在检查房间名称和密码……", "Checking room details..."),
+            [TextKey.DuplicateRoom] = ("已存在相同房间名称和密码，请修改其中一项。", "A room with the same name and password already exists. Change either one."),
+            [TextKey.CreateFailed] = ("创建失败，请确认 Steam 在线后重试。", "Could not create the room. Make sure Steam is online, then try again."),
+            [TextKey.MultiplayerSaveUnavailable] = ("多人存档无法读取，请选择放弃存档或返回。", "The multiplayer save could not be loaded. Abandon it or go back."),
+            [TextKey.EnterRoomName] = ("请输入房间名称。", "Enter a room name."),
+            [TextKey.EnterRoomPassword] = ("请输入房间密码。", "Enter a room password."),
+            [TextKey.EnterRoomCredentials] = ("请输入房间名称和密码。", "Enter a room name and password."),
+            [TextKey.InvalidPassword] = ("密码最多 64 个字符，且不能包含控制字符。", "The password can contain up to 64 characters and cannot include control characters."),
+            [TextKey.SteamPlayer] = ("Steam 玩家", "Steam Player"),
+            [TextKey.RestSiteTrade] = ("篝火交易", "Rest Site Trade"),
+            [TextKey.RestSiteTradeDescription] = ("与队友交换卡牌、遗物和药水。每次篝火只能完成一次交易。", "Trade Cards, Relics, and Potions with another player. One completed trade per Rest Site."),
+            [TextKey.GoldTrade] = ("金币交易", "Gold Trade"),
+            [TextKey.GoldTradeTooltip] = ("与同一商店中的队友交换金币", "Trade gold with another player in this shop"),
+            [TextKey.TradeNetworkUnavailable] = ("交易网络初始化失败，请关闭后重试。", "Trade networking could not start. Close this screen and try again."),
+            [TextKey.SelectTradePartner] = ("选择交易玩家", "Choose a Trade Partner"),
+            [TextKey.RunUnavailable] = ("当前对局不可用。", "The current run is unavailable."),
+            [TextKey.AlreadyTradedHere] = ("本次篝火已交易", "Already traded here"),
+            [TextKey.ReadyToTrade] = ("可以交易", "Ready to trade"),
+            [TextKey.NotInTradeScreen] = ("尚未进入交易界面", "Not on the trade screen"),
+            [TextKey.Trade] = ("交易", "Trade"),
+            [TextKey.PlayerInvited] = ("已邀请 {0}。", "Invited {0}."),
+            [TextKey.NoOtherPlayers] = ("当前没有其他玩家。", "No other players are available."),
+            [TextKey.WaitingForPlayers] = ("等待其他玩家进入交易界面。", "Waiting for another player to open the trade screen."),
+            [TextKey.TradeInviteReceived] = ("{0} 邀请你进行交易", "{0} wants to trade"),
+            [TextKey.WaitingForInviteResponse] = ("等待 {0} 接受交易", "Waiting for {0} to respond"),
+            [TextKey.Decline] = ("拒绝", "Decline"),
+            [TextKey.Accept] = ("接受", "Accept"),
+            [TextKey.CancelInvite] = ("取消邀请", "Cancel Invite"),
+            [TextKey.TradePlayerLeft] = ("交易玩家已不在当前对局中。", "The other player is no longer in this run."),
+            [TextKey.CancelTrade] = ("取消交易", "Cancel Trade"),
+            [TextKey.WithdrawConfirmation] = ("取消确认", "Withdraw Confirmation"),
+            [TextKey.ConfirmTrade] = ("确认交易", "Confirm Trade"),
+            [TextKey.BothConfirmed] = ("双方已确认，正在结算。", "Both players confirmed. Completing the trade..."),
+            [TextKey.WaitingForOtherConfirmation] = ("你已确认，等待对方。", "Confirmed. Waiting for the other player."),
+            [TextKey.SyncingOffer] = ("正在同步报价。", "Syncing offer..."),
+            [TextKey.WaitingForConfirmations] = ("等待双方确认。", "Waiting for both players to confirm."),
+            [TextKey.YourOffer] = ("你的报价", "Your Offer"),
+            [TextKey.Confirmed] = ("已确认", "Confirmed"),
+            [TextKey.NotConfirmed] = ("未确认", "Not Confirmed"),
+            [TextKey.GoldOnHand] = ("持有金币：{0}", "Gold on Hand: {0}"),
+            [TextKey.CardsCount] = ("卡牌 {0}/{1}", "Cards {0}/{1}"),
+            [TextKey.ChooseCard] = ("选择卡牌", "Choose Card"),
+            [TextKey.Relic] = ("遗物", "Relic"),
+            [TextKey.ChooseRelic] = ("选择遗物", "Choose Relic"),
+            [TextKey.Potion] = ("药水", "Potion"),
+            [TextKey.ChoosePotion] = ("选择药水", "Choose Potion"),
+            [TextKey.GoldYouOffer] = ("你提供的金币", "Gold You Offer"),
+            [TextKey.GoldTheyOffer] = ("对方提供的金币", "Gold They Offer"),
+            [TextKey.GoldAmountPlaceholder] = ("输入金币数量", "Enter gold amount"),
+            [TextKey.ChooseItem] = ("选择物品", "Choose Item"),
+            [TextKey.SelectionCount] = ("{0}（{1}/{2}）", "{0} ({1}/{2})"),
+            [TextKey.Cancel] = ("取消", "Cancel"),
+            [TextKey.ConfirmSelection] = ("确认选择", "Confirm Selection"),
+            [TextKey.ItemCannotBeTraded] = ("{0}\n该物品不能交易", "{0}\nThis item cannot be traded"),
+            [TextKey.SelectionLimit] = ("最多选择 {0} 个。", "You can choose up to {0}."),
+            [TextKey.SubmittingTrade] = ("正在校验并提交交易", "Completing Trade"),
+            [TextKey.TransactionId] = ("事务号：{0}", "Transaction ID: {0}"),
+            [TextKey.DoNotLeaveRun] = ("请勿退出当前对局。", "Do not leave the current run."),
+            [TextKey.TradeComplete] = ("交易完成", "Trade Complete"),
+            [TextKey.RestActionsRemain] = ("现在仍可选择休息或锻造。", "You can still Rest or Smith."),
+            [TextKey.TradeAgain] = ("继续交易", "Trade Again"),
+            [TextKey.BackToRestSite] = ("返回篝火", "Back to Rest Site"),
+            [TextKey.TradeCanceled] = ("交易已取消", "Trade Canceled"),
+            [TextKey.BackToPlayerList] = ("返回玩家列表", "Back to Player List"),
+            [TextKey.PlayerUnavailable] = ("当前玩家不可用。", "The current player is unavailable."),
+            [TextKey.GoldInputUnavailable] = ("金币输入框不可用。", "The gold input is unavailable."),
+            [TextKey.SubmittingOffer] = ("正在提交报价。", "Submitting offer..."),
+            [TextKey.PlayerFallback] = ("玩家 {0}", "Player {0}"),
+            [TextKey.InvalidGoldAmount] = ("请输入有效的金币数量。", "Enter a valid amount of gold."),
+            [TextKey.GoldAmountRange] = ("金币数量必须在 0 到 {0} 之间。", "Gold must be between 0 and {0}."),
+            [TextKey.InvalidGoldOffer] = ("报价中的金币数量无效。", "The offered gold amount is invalid."),
+            [TextKey.InvalidTradeLocation] = ("交易位置无效。", "Trading is not available here."),
+            [TextKey.NegativeOfferAmount] = ("报价数量不能为负数。", "Offer amounts cannot be negative."),
+            [TextKey.GoldOnlyAtMerchant] = ("金币只能在商店中交易。", "Gold can only be traded at a merchant."),
+            [TextKey.ItemsNotAllowedAtMerchant] = ("商店中只能交易金币。", "Only gold can be traded at a merchant."),
+            [TextKey.OfferLimitExceeded] = ("报价超过允许的物品数量。", "The offer contains too many items."),
+            [TextKey.OfferedItemMissing] = ("报价引用了已经不存在的物品，请重新选择。", "An offered item is no longer available. Choose again."),
+            [TextKey.BoundCurseNotTradable] = ("绑定诅咒牌不能交易。", "Bound Curse cards cannot be traded."),
+            [TextKey.RelicNotTradable] = ("该遗物包含拾取奖励、角色绑定或其他不可转移状态，不能交易。", "That Relic has an immediate reward or non-transferable state and cannot be traded."),
+            [TextKey.PotionCannotBeRemoved] = ("当前状态下不能移除药水。", "Potions cannot be removed right now."),
+            [TextKey.OfferedPotionMissing] = ("报价中的药水已经不存在，请重新选择。", "An offered Potion is no longer available. Choose again."),
+            [TextKey.NoGoldOffered] = ("双方都没有提供金币。", "Neither player offered any gold."),
+            [TextKey.NoItemsOffered] = ("双方都没有提供物品。", "Neither player offered any items."),
+            [TextKey.NotEnoughPotionSlots] = ("交易后有玩家的药水槽空间不足。", "A player does not have enough Potion slots for this trade."),
+            [TextKey.DuplicateRelicAfterTrade] = ("交易后不能持有重复遗物。", "This trade would give a player a duplicate Relic."),
+            [TextKey.PartnerNotAtTradeScreen] = ("对方当前不在同一交易界面。", "The other player is not on the same trade screen."),
+            [TextKey.RestSiteTradeAlreadyUsed] = ("你或对方已经完成了本次篝火交易。", "You or the other player already traded at this Rest Site."),
+            [TextKey.PlayerAlreadyTrading] = ("你或对方已经在另一笔交易中。", "You or the other player is already in another trade."),
+            [TextKey.TradeInviteExpired] = ("交易邀请已经失效。", "This trade invite has expired."),
+            [TextKey.PlayerNotFound] = ("当前对局中找不到该玩家。", "That player could not be found in the current run."),
+            [TextKey.InvalidOffer] = ("报价无效。", "The offer is invalid."),
+            [TextKey.OfferChanged] = ("报价刚刚发生变化，请重新确认。", "The offer changed. Review it and confirm again."),
+            [TextKey.GoldBalanceChanged] = ("持有金币发生变化，请重新确认。", "Your gold changed. Review the offer and confirm again."),
+            [TextKey.APlayerAlreadyTradedHere] = ("有玩家已经完成了本次篝火交易。", "A player already traded at this Rest Site."),
+            [TextKey.HostTradeApplyFailed] = ("房主应用交易失败，请检查日志。", "The host could not complete the trade. Check the log."),
+            [TextKey.TradeSessionEnded] = ("交易会话无效或已经结束。", "This trade is no longer active."),
+            [TextKey.InvalidTradeRequest] = ("交易请求无效。", "The trade request is invalid."),
+            [TextKey.TradeSyncFailed] = ("交易同步失败，请退出本局并检查日志。", "The trade could not be synchronized. Leave this run and check the log."),
+            [TextKey.AssistSmithName] = ("帮助队友锻造", "Smith for a Teammate"),
+            [TextKey.AssistSmithDescription] = ("选择一名队友并为其升级一张牌。将消耗你本次篝火行动。", "Upgrade a card for another player. Uses your Rest Site action."),
+            [TextKey.AssistSmithPlayerLeft] = ("玩家已离开当前对局。", "The player has left the current run."),
+            [TextKey.AssistSmithPlayerDisconnected] = ("玩家已断开连接。", "The player disconnected."),
+            [TextKey.AssistSmithOtherPlayersOnly] = ("只能帮助其他队友锻造。", "You can only Smith for another player."),
+            [TextKey.AssistSmithDeckChanged] = ("队友的牌组已经发生变化，请重新选择。", "That player's deck changed. Choose a card again."),
+            [TextKey.AssistSmithCardNotUpgradable] = ("这张牌现在无法升级。", "That card can no longer be upgraded.")
+        };
+
+    internal static event Action? LanguageChanged;
+
+    internal static void SetLanguage(string language)
+    {
+        string normalized = string.IsNullOrWhiteSpace(language) ? "eng" : language.Trim().ToLowerInvariant();
+        if (string.Equals(_language, normalized, StringComparison.Ordinal))
+            return;
+
+        _language = normalized;
+        LanguageChanged?.Invoke();
+    }
+
+    internal static string Get(TextKey key, params object[] args) => ForLanguage(_language, key, args);
+
+    internal static string ForLanguage(string language, TextKey key, params object[] args)
+    {
+        (string zh, string en) = Strings[key];
+        string format = IsSimplifiedChinese(language) ? zh : en;
+        return args.Length == 0
+            ? format
+            : string.Format(CultureInfo.InvariantCulture, format, args);
+    }
+
+    internal static string Token(TextKey key) => $"{TokenPrefix}{key}";
+
+    internal static string Resolve(string value)
+    {
+        if (!value.StartsWith(TokenPrefix, StringComparison.Ordinal))
+            return value;
+
+        string keyName = value[TokenPrefix.Length..];
+        return Enum.TryParse(keyName, ignoreCase: false, out TextKey key)
+            ? Get(key)
+            : Get(TextKey.InvalidTradeRequest);
+    }
+
+    internal static bool IsSimplifiedChinese(string? language) =>
+        string.Equals(language, "zhs", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(language, "zh-cn", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(language, "zh_cn", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(language, "zh-hans", StringComparison.OrdinalIgnoreCase);
+}

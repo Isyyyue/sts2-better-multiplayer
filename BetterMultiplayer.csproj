@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <STS2Path Condition="'$(STS2Path)' == ''">E:/steam/steam/steamapps/common/Slay the Spire 2</STS2Path>
+    <STS2DataPath>$(STS2Path)/data_sts2_windows_x86_64</STS2DataPath>
+    <BaseLibPath Condition="'$(BaseLibPath)' == ''">E:/steam/steam/steamapps/workshop/content/2868840/3737335127/BaseLib/BaseLib.dll</BaseLibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="tests/**/*.cs" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0" PrivateAssets="All" />
+    <Reference Include="sts2">
+      <HintPath>$(STS2DataPath)/sts2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GodotSharp">
+      <HintPath>$(STS2DataPath)/GodotSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(STS2DataPath)/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Steamworks.NET">
+      <HintPath>$(STS2DataPath)/Steamworks.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BaseLib">
+      <HintPath>$(BaseLibPath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Publicize Include="sts2" IncludeVirtualMembers="false" IncludeCompilerGeneratedMembers="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BetterMultiplayer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/Trading/*.png" />
+  </ItemGroup>
+
+  <Target Name="ValidateGameReferences" BeforeTargets="ResolveReferences">
+    <Error Text="STS2 data directory not found: $(STS2DataPath)" Condition="!Exists('$(STS2DataPath)/sts2.dll')" />
+    <Error Text="BaseLib not found: $(BaseLibPath)" Condition="!Exists('$(BaseLibPath)')" />
+  </Target>
+
+  <Target Name="StageMod" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <StageDir>$(MSBuildProjectDirectory)/artifacts/staging/BetterMultiplayer</StageDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(StageDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(StageDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/BetterMultiplayer.json" DestinationFolder="$(StageDir)" />
+  </Target>
+</Project>

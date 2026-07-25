@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <STS2Path Condition="'$(STS2Path)' == ''">E:/steam/steam/steamapps/common/Slay the Spire 2</STS2Path>
+    <STS2DataPath>$(STS2Path)/data_sts2_windows_x86_64</STS2DataPath>
+    <BaseLibPath Condition="'$(BaseLibPath)' == ''">E:/steam/steam/steamapps/workshop/content/2868840/3737335127/BaseLib/BaseLib.dll</BaseLibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BetterMultiplayer.csproj" />
+    <Reference Include="sts2">
+      <HintPath>$(STS2DataPath)/sts2.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="BaseLib">
+      <HintPath>$(BaseLibPath)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="GodotSharp">
+      <HintPath>$(STS2DataPath)/GodotSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Steamworks.NET">
+      <HintPath>$(STS2DataPath)/Steamworks.NET.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(STS2DataPath)/0Harmony.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

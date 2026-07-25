@@ -1,0 +1,33 @@
+# Build and test outputs
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+*.pdb
+
+# Local tools and editor state
+.playwright-mcp/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Local configuration and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Generated Workshop content and source captures
+workshop/content/
+workshop/previews.previous/
+workshop/screenshots/
+workshop/preview-source.jpg
+
+# Operating-system files
+.DS_Store
+Thumbs.db
