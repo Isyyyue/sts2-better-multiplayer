@@ -30,13 +30,16 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
     private sealed record TargetControlState(
         Control Hitbox,
         Control.FocusModeEnum FocusMode,
-        Control.MouseFilterEnum MouseFilter,
         NodePath FocusNeighborTop,
         NodePath FocusNeighborBottom,
         NodePath FocusNeighborLeft,
         NodePath FocusNeighborRight,
-        Control? SelectionReticle,
-        Control.MouseFilterEnum? SelectionReticleMouseFilter);
+        IReadOnlyList<TargetMouseFilterState> MouseFilters);
+
+    private sealed record TargetMouseFilterState(
+        Control Control,
+        Control.MouseFilterEnum OriginalMouseFilter,
+        Control.MouseFilterEnum ActiveMouseFilter);
 
     private readonly Player _owner = owner;
     private Player? _target;
@@ -230,21 +233,56 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
         foreach (NRestSiteCharacter character in targets)
         {
             Control hitbox = character.Hitbox;
-            Control? reticle = character.GetNodeOrNull<Control>("%SelectionReticle");
+            IReadOnlyList<TargetMouseFilterState> mouseFilters = BuildMouseFilterStates(character, hitbox);
             states.Add(new TargetControlState(
                 hitbox,
                 hitbox.FocusMode,
-                hitbox.MouseFilter,
                 hitbox.FocusNeighborTop,
                 hitbox.FocusNeighborBottom,
                 hitbox.FocusNeighborLeft,
                 hitbox.FocusNeighborRight,
-                reticle,
-                reticle?.MouseFilter));
+                mouseFilters));
 
-            hitbox.MouseFilter = Control.MouseFilterEnum.Stop;
-            if (reticle is not null)
-                reticle.MouseFilter = Control.MouseFilterEnum.Ignore;
+            foreach (TargetMouseFilterState mouseFilter in mouseFilters)
+                mouseFilter.Control.MouseFilter = mouseFilter.ActiveMouseFilter;
+        }
+    }
+
+    private static IReadOnlyList<TargetMouseFilterState> BuildMouseFilterStates(
+        NRestSiteCharacter character,
+        Control hitbox)
+    {
+        List<Control> controls = EnumerateDescendantControls(character).ToList();
+        if (!controls.Any(control => control == hitbox))
+            controls.Insert(0, hitbox);
+
+        Rect2 hitboxRect = hitbox.GetGlobalRect();
+        AssistSmithTargetControlInput[] inputs = controls
+            .Select(control => new AssistSmithTargetControlInput(
+                control == hitbox,
+                hitboxRect.Intersects(control.GetGlobalRect(), includeBorders: true),
+                control.MouseFilter))
+            .ToArray();
+        AssistSmithTargetControlPlan[] plan = AssistSmithTargetInputPolicy.BuildPlan(inputs);
+
+        return controls
+            .Select((control, index) => new TargetMouseFilterState(
+                control,
+                plan[index].OriginalMouseFilter,
+                plan[index].ActiveMouseFilter))
+            .Where(state => state.OriginalMouseFilter != state.ActiveMouseFilter)
+            .ToArray();
+    }
+
+    private static IEnumerable<Control> EnumerateDescendantControls(Node node)
+    {
+        foreach (Node child in node.GetChildren())
+        {
+            if (child is Control control)
+                yield return control;
+
+            foreach (Control descendant in EnumerateDescendantControls(child))
+                yield return descendant;
         }
     }
 
@@ -252,6 +290,18 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
     {
         foreach (TargetControlState state in states)
         {
+            foreach (TargetMouseFilterState mouseFilter in state.MouseFilters)
+            {
+                if (GodotObject.IsInstanceValid(mouseFilter.Control) &&
+                    AssistSmithTargetInputPolicy.ShouldRestore(
+                        mouseFilter.OriginalMouseFilter,
+                        mouseFilter.ActiveMouseFilter,
+                        mouseFilter.Control.MouseFilter))
+                {
+                    mouseFilter.Control.MouseFilter = mouseFilter.OriginalMouseFilter;
+                }
+            }
+
             if (!GodotObject.IsInstanceValid(state.Hitbox))
                 continue;
 
@@ -260,11 +310,6 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
             state.Hitbox.FocusNeighborLeft = state.FocusNeighborLeft;
             state.Hitbox.FocusNeighborRight = state.FocusNeighborRight;
             state.Hitbox.FocusMode = state.FocusMode;
-            state.Hitbox.MouseFilter = state.MouseFilter;
-            if (state.SelectionReticle is not null &&
-                GodotObject.IsInstanceValid(state.SelectionReticle) &&
-                state.SelectionReticleMouseFilter is { } mouseFilter)
-                state.SelectionReticle.MouseFilter = mouseFilter;
         }
     }
 
@@ -291,4 +336,42 @@ internal static class AssistSmithTargetPolicy
 {
     internal static bool CanTarget(Player owner, Player? candidate) =>
         candidate is not null && candidate != owner;
+}
+
+internal readonly record struct AssistSmithTargetControlInput(
+    bool IsHitbox,
+    bool IntersectsHitbox,
+    Control.MouseFilterEnum OriginalMouseFilter);
+
+internal readonly record struct AssistSmithTargetControlPlan(
+    Control.MouseFilterEnum ActiveMouseFilter,
+    Control.MouseFilterEnum OriginalMouseFilter);
+
+internal static class AssistSmithTargetInputPolicy
+{
+    internal static AssistSmithTargetControlPlan[] BuildPlan(
+        IReadOnlyList<AssistSmithTargetControlInput> controls)
+    {
+        AssistSmithTargetControlPlan[] plan = new AssistSmithTargetControlPlan[controls.Count];
+        for (int index = 0; index < controls.Count; index++)
+        {
+            AssistSmithTargetControlInput control = controls[index];
+            Control.MouseFilterEnum activeMouseFilter = control switch
+            {
+                { IsHitbox: true } => Control.MouseFilterEnum.Stop,
+                { IntersectsHitbox: true } => Control.MouseFilterEnum.Ignore,
+                _ => control.OriginalMouseFilter
+            };
+            plan[index] = new AssistSmithTargetControlPlan(
+                activeMouseFilter,
+                control.OriginalMouseFilter);
+        }
+        return plan;
+    }
+
+    internal static bool ShouldRestore(
+        Control.MouseFilterEnum originalMouseFilter,
+        Control.MouseFilterEnum activeMouseFilter,
+        Control.MouseFilterEnum currentMouseFilter) =>
+        originalMouseFilter != activeMouseFilter && currentMouseFilter == activeMouseFilter;
 }
