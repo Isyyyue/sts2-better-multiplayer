@@ -161,7 +161,7 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
 
         room.AnimateDescriptionDown();
         Vector2 startPosition = button.GlobalPosition + button.Size / 2f;
-        bool usingController = NControllerManager.Instance?.IsUsingController == true;
+        bool usingController = GameApiCompatibility.IsUsingController(NControllerManager.Instance);
         List<NRestSiteCharacter> targets = room.Characters
             .Where(character => IsValidTarget(character.Player))
             .ToList();

@@ -2,7 +2,7 @@
   "title": "更好的联机 / Better Multiplayer",
   "description": "[h1]更好的联机[/h1]\n保留官方好友联机，并增加密码房间、篝火物品交易、帮助队友锻造和商店金币交易。连接使用 Steam 大厅与中继，无需端口映射或第三方内网穿透。\n\n[h2]主要功能[/h2]\n[list]\n[*]通过准确的房间名称和密码与非 Steam 好友联机\n[*]在篝火交换卡牌、遗物和药水\n[*]消耗自己的篝火行动，为队友升级一张牌\n[*]在商店中与队友交换金币\n[/list]\n所有玩家必须安装本 Mod、BaseLib，并使用相同版本。掉线后请由房主重新创建房间并选择“读档多人游戏”。\n\n[h1]Better Multiplayer[/h1]\nKeeps the official friends-only multiplayer flow and adds password rooms, Rest Site item trades, Smith for a Teammate, and gold trading at merchants. Connections use Steam lobbies and relay, so no port forwarding or third-party tunneling is required.\n\n[h2]Features[/h2]\n[list]\n[*]Play with non-friends by entering the exact room name and password\n[*]Trade Cards, Relics, and Potions at Rest Sites\n[*]Spend your Rest Site action to upgrade a card for another player\n[*]Trade gold with another player at merchants\n[/list]\nEvery player needs this mod, BaseLib, and the same mod version. After a disconnect, the host must create a new room and choose Load Multiplayer Run.\n\n[h2]前置 / Requirement[/h2]\n[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127]BaseLib[/url]\n\n[h2]开源[/h2]\n本 Mod 的原创源代码与原创 Mod 素材已在 GitHub 以 MIT License 开源，欢迎查看源代码、提交问题和参与改进。\n[url=https://github.com/Isyyyue/sts2-better-multiplayer]GitHub 源代码仓库[/url]\n\n[h2]Open Source[/h2]\nThis mod's original source code and original mod artwork are open source on GitHub under the MIT License. You can review the source, report issues, and contribute improvements.\n[url=https://github.com/Isyyyue/sts2-better-multiplayer]GitHub Source Repository[/url]",
   "visibility": "public",
-  "changeNote": "[h1]0.4.3 帮助锻造兼容性修复 / Assist Smith Compatibility Fix[/h1]\n\n[h2]中文[/h2]\n[list]\n[*]修复部分模组角色的立绘控件遮挡帮助锻造目标选择，导致不显示选中框或无法点击的问题\n[*]选择结束或取消后会恢复角色控件原有的鼠标交互状态\n[*]提高帮助锻造与自定义角色休息点场景的兼容性\n[/list]\n\n[h2]English[/h2]\n[list]\n[*]Fixed modded character portrait controls blocking Assist Smith targeting, which could prevent the highlight or click from working\n[*]Restores each character control's original mouse behavior after selection or cancellation\n[*]Improved Assist Smith compatibility with custom Rest Site character scenes\n[/list]\n\n[b]所有玩家必须使用 0.4.3。[/b]\n[b]All players must use 0.4.3.[/b]",
+  "changeNote": "[h1]0.4.4 默认版与 public-beta 支持 / Default Branch and public-beta Support[/h1]\n\n[h2]中文[/h2]\n[list]\n[*]创意工坊分支范围现在同时支持默认版和 public-beta\n[*]已针对当前 public-beta v0.110.1 完成编译与自动测试验证\n[*]联机时所有玩家仍需使用相同的游戏分支、Mod 版本和 BaseLib 版本\n[/list]\n\n[h2]English[/h2]\n[list]\n[*]The Workshop branch range now supports both the default branch and public-beta\n[*]Built and verified against the current public-beta v0.110.1 with the automated test suite\n[*]Players still need to use the same game branch, mod version, and BaseLib version when playing together\n[/list]\n\n[b]所有玩家必须使用 0.4.4。[/b]\n[b]All players must use 0.4.4.[/b]",
   "tags": [
     "Multiplayer",
     "Quality of Life"
@@ -11,7 +11,7 @@
     3737335127
   ],
   "contentDescriptors": [],
-  "minBranch": "public",
+  "minBranch": "public-beta",
   "maxBranch": "public",
   "preservePreviews": true
 }

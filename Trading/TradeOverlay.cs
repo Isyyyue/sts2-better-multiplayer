@@ -631,7 +631,7 @@ internal sealed class TradeOverlay
                         index,
                         potion.Title.GetFormattedText(),
                         TryGetTexture(() => potion.Image),
-                        player.CanRemovePotions,
+                        GameApiCompatibility.CanRemovePotions(player),
                         new Vector2(180, 160)));
                 }
                 break;

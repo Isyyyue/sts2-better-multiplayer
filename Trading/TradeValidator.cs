@@ -80,7 +80,7 @@ internal static class TradeValidator
             return false;
         }
 
-        if (offer.PotionSlotIndices.Count > 0 && !player.CanRemovePotions)
+        if (offer.PotionSlotIndices.Count > 0 && !GameApiCompatibility.CanRemovePotions(player))
         {
             error = ModText.Token(TextKey.PotionCannotBeRemoved);
             return false;
