@@ -82,12 +82,12 @@ $projectVersionNode = $project.SelectSingleNode('/Project/PropertyGroup/Version'
 if (-not $sourceVersionMatch.Success -or $null -eq $projectVersionNode) {
     throw 'Could not read all version sources.'
 }
-$versions = @(
+$versions = @(@(
     $sourceManifest.version
     $packagedManifest.version
     $sourceVersionMatch.Groups[1].Value
     $projectVersionNode.InnerText
-) | Select-Object -Unique
+) | Select-Object -Unique)
 if ($versions.Count -ne 1) {
     throw "Version mismatch before upload: $($versions -join ', ')"
 }
