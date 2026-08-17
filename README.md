@@ -16,9 +16,9 @@
 
 ## 环境
 
-- Slay the Spire 2 `0.107.x`
+- Slay the Spire 2（最低版本 `0.107.1`；最近验证 `public-beta v0.111.0`）
 - .NET SDK 9
-- BaseLib（Steam 创意工坊物品 `3737335127`）
+- BaseLib（Steam 创意工坊物品 `3737335127`；最近验证 `v3.4.5`）
 
 项目默认使用本机路径 `E:/steam/steam/steamapps/common/Slay the Spire 2`。其他电脑可在构建时传入 `STS2Path` 和 `BaseLibPath`。
 
@@ -43,6 +43,8 @@ dotnet build .\BetterMultiplayer.csproj -c Release `
 ```powershell
 dotnet test .\tests\BetterMultiplayer.Tests.csproj -c Release
 ```
+
+维护者可以使用 `tools/prepare-release.ps1` 一次完成测试、Release 构建、发布目录重建和 SHA-256 输出。完整的接手、核验与发布流程见[维护者接手手册](docs/maintainer-handoff.md)。
 
 仓库不包含游戏、BaseLib 或其他第三方 DLL。构建者需要从官方来源自行安装这些依赖。更多设计细节见[架构说明](docs/architecture.md)。
 
