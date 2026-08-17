@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory)]
     [string]$UploaderDirectory,
     [string]$WorkspacePath = '',
-    [string]$WorkshopId = '3768337454'
+    [string]$WorkshopId = '3768337454',
+    [switch]$ValidateOnly
 )
 
 Set-StrictMode -Version Latest
@@ -119,6 +120,14 @@ $packagedDll = Get-Item -LiteralPath (Join-Path $workspaceContentPath 'BetterMul
 $expectedProductVersion = "$($sourceManifest.version)+$headCommit"
 if ($packagedDll.VersionInfo.ProductVersion -ne $expectedProductVersion) {
     throw "DLL ProductVersion must be $expectedProductVersion, got $($packagedDll.VersionInfo.ProductVersion)"
+}
+
+if ($ValidateOnly) {
+    $dllHash = (Get-FileHash -LiteralPath $packagedDll.FullName -Algorithm SHA256).Hash
+    Write-Host "Workshop upload validation passed: $WorkshopId"
+    Write-Host "DLL ProductVersion: $($packagedDll.VersionInfo.ProductVersion)"
+    Write-Host "DLL SHA256: $dllHash"
+    return
 }
 
 if ($null -eq (Get-Process -Name steam -ErrorAction SilentlyContinue)) {

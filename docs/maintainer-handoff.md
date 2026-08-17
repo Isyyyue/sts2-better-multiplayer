@@ -90,6 +90,8 @@ dotnet build .\BetterMultiplayer.csproj -c Release `
 .\tools\publish-workshop.ps1 -UploaderDirectory '<ModUploader-win-x64 完整解压目录>'
 ```
 
+正式上传前可先加 `-ValidateOnly`，完整检查 Git、版本、DLL、工作区和上传器文件，但不调用 Steam Workshop API。
+
 上传器使用当前 Steam 客户端登录账号。上传时不要运行游戏；日志必须显示当前 persona，并显示条目 `3768337454` 更新成功。生成的临时工作区没有 `previews/`，因此线上 6 张附加预览保持不变；`workshop.json` 不支持 `preservePreviews` 字段。
 
 ## 发布后核验
