@@ -1,6 +1,6 @@
 # 更好的联机 / Better Multiplayer
 
-《杀戮尖塔 2》中文联机增强 Mod。它保留官方好友联机，同时新增：
+《杀戮尖塔 2》中英双语联机增强 Mod。它保留官方好友联机，同时新增：
 
 > A bilingual Slay the Spire 2 mod that keeps official friend multiplayer and
 > adds password rooms, Rest Site item trades, teammate smithing, and merchant
