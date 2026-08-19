@@ -268,6 +268,7 @@ internal sealed class TradeOverlay
             }, primary: true);
             invite.CustomMinimumSize = new Vector2(130, 54);
             invite.Disabled = !available || used;
+            UiFactory.SyncNativeInput(invite);
             row.AddChild(invite);
             grid.AddChild(band);
         }
@@ -371,6 +372,7 @@ internal sealed class TradeOverlay
             primary: !localConfirmed);
         _confirmButton.CustomMinimumSize = new Vector2(160, 52);
         _confirmButton.Disabled = _offerUpdatePending;
+        UiFactory.SyncNativeInput(_confirmButton);
         actions.AddChild(_confirmButton);
         _body.AddChild(actions);
 
@@ -658,6 +660,7 @@ internal sealed class TradeOverlay
         bool selected = _selectionIndices.Contains(index);
         Button tile = CreateItemTile(title, texture, size, () => ToggleSelection(index), selected);
         tile.Disabled = !tradable;
+        UiFactory.SyncNativeInput(tile);
         if (!tradable)
             tile.TooltipText = ModText.Get(TextKey.ItemCannotBeTraded, title);
         return tile;
@@ -862,7 +865,10 @@ internal sealed class TradeOverlay
             _offerUpdatePending = true;
             _confirmAfterOfferSync = true;
             if (_confirmButton is not null)
+            {
                 _confirmButton.Disabled = true;
+                UiFactory.SyncNativeInput(_confirmButton);
+            }
             SetStatus(ModText.Get(TextKey.SubmittingOffer), error: false);
             TradeNetwork.SendRequest(new OfferUpdateRequest
             {
@@ -898,7 +904,10 @@ internal sealed class TradeOverlay
         CancelQueuedOffer();
         _offerUpdatePending = true;
         if (_confirmButton is not null)
+        {
             _confirmButton.Disabled = true;
+            UiFactory.SyncNativeInput(_confirmButton);
+        }
 
         CancellationTokenSource source = new();
         _offerSendCancellation = source;

@@ -168,6 +168,7 @@ internal sealed class LobbyMenu
         }
 
         button.Disabled = true;
+        UiFactory.SyncNativeInput(button);
         SetStatus(ModText.Get(TextKey.SearchingForRoom), error: false);
         _requestCancellation = new CancellationTokenSource();
         try
@@ -205,7 +206,10 @@ internal sealed class LobbyMenu
         finally
         {
             if (GodotObject.IsInstanceValid(button))
+            {
                 button.Disabled = false;
+                UiFactory.SyncNativeInput(button);
+            }
         }
     }
 
@@ -218,6 +222,7 @@ internal sealed class LobbyMenu
         }
 
         button.Disabled = true;
+        UiFactory.SyncNativeInput(button);
         SetStatus(ModText.Get(TextKey.CheckingRoom), error: false);
         _requestCancellation = new CancellationTokenSource();
         try
@@ -252,7 +257,10 @@ internal sealed class LobbyMenu
         finally
         {
             if (GodotObject.IsInstanceValid(button))
+            {
                 button.Disabled = false;
+                UiFactory.SyncNativeInput(button);
+            }
         }
     }
 

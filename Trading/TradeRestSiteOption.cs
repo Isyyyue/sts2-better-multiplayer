@@ -40,8 +40,11 @@ internal static class TradeRestSiteButtonLayoutPatch
     [HarmonyPostfix]
     private static void Postfix(NRestSiteButton __instance)
     {
-        if (__instance.Option is not TradeRestSiteOption &&
-            __instance.Option is not AssistSmithRestSiteOption)
+        RestSiteOption? option = Traverse.Create(__instance)
+            .Field("_option")
+            .GetValue<RestSiteOption>();
+        if (option is not TradeRestSiteOption &&
+            option is not AssistSmithRestSiteOption)
             return;
 
         TextureRect? icon = Traverse.Create(__instance)

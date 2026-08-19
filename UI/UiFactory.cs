@@ -313,6 +313,14 @@ internal static class UiFactory
 
         NativeInputBinding binding = new(button, onReleased);
         button.AddChild(binding.Input);
+        button.MouseFilter = Control.MouseFilterEnum.Ignore;
+        binding.Input.SetEnabled(!button.Disabled);
+    }
+
+    internal static void SyncNativeInput(Button button)
+    {
+        if (button.GetNodeOrNull<NButton>("BetterMultiplayerNativeInput") is { } input)
+            input.SetEnabled(!button.Disabled);
     }
 
     private sealed class NativeInputBinding
