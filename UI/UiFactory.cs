@@ -288,7 +288,8 @@ internal static class UiFactory
         {
             Text = text,
             CustomMinimumSize = new Vector2(112, 44),
-            FocusMode = Control.FocusModeEnum.All
+            FocusMode = Control.FocusModeEnum.None,
+            MouseFilter = Control.MouseFilterEnum.Ignore
         };
         Color background = danger ? Danger : primary ? Accent : new Color("343c42");
         Color hover = background.Lightened(0.12f);
@@ -296,8 +297,108 @@ internal static class UiFactory
         button.AddThemeStyleboxOverride("hover", PanelStyle(hover, Accent, 1, 5));
         button.AddThemeStyleboxOverride("pressed", PanelStyle(background.Darkened(0.1f), Accent, 2, 5));
         button.AddThemeColorOverride("font_color", primary ? Colors.Black : Colors.White);
-        button.Pressed += onPressed;
+        AttachNativeInput(button, onPressed);
         return button;
+    }
+
+    /// <summary>
+    /// Routes input through the game's NButton system while leaving the Godot Button
+    /// in place as the visual skin. The game-wide input layer does not reliably
+    /// deliver clicks to ordinary Godot Buttons when an overlay is active.
+    /// </summary>
+    internal static void AttachNativeInput(Button button, Action onReleased)
+    {
+        if (button.GetNodeOrNull<NButton>("BetterMultiplayerNativeInput") is not null)
+            return;
+
+        NativeInputBinding binding = new(button, onReleased);
+        button.AddChild(binding.Input);
+    }
+
+    private sealed class NativeInputBinding
+    {
+        private enum VisualState
+        {
+            Normal,
+            Hover,
+            Pressed
+        }
+
+        private readonly Button _button;
+        private readonly StyleBox? _normalStyle;
+        private readonly StyleBox? _hoverStyle;
+        private readonly StyleBox? _pressedStyle;
+
+        internal NButton Input { get; }
+
+        internal NativeInputBinding(Button button, Action onReleased)
+        {
+            _button = button;
+            _normalStyle = button.GetThemeStylebox("normal");
+            _hoverStyle = button.GetThemeStylebox("hover");
+            _pressedStyle = button.GetThemeStylebox("pressed");
+
+            Input = new NButton
+            {
+                Name = "BetterMultiplayerNativeInput",
+                MouseFilter = Control.MouseFilterEnum.Stop,
+                FocusMode = Control.FocusModeEnum.All
+            };
+            Input.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+            Input.Focused += OnFocused;
+            Input.Unfocused += OnUnfocused;
+            Input.MousePressed += OnMousePressed;
+            Input.MouseReleased += OnMouseReleased;
+            Input.Released += _ =>
+            {
+                if (!GodotObject.IsInstanceValid(_button) || _button.Disabled)
+                    return;
+
+                BetterMultiplayerMod.Logger.Info(
+                    $"Native button released: text=\"{_button.Text}\", name={_button.Name}");
+                onReleased();
+            };
+        }
+
+        private void OnFocused(NClickableControl _)
+        {
+            if (!GodotObject.IsInstanceValid(_button))
+                return;
+            Input.TooltipText = _button.TooltipText;
+            SetVisualState(_button.Disabled ? VisualState.Normal : VisualState.Hover);
+        }
+
+        private void OnUnfocused(NClickableControl _)
+        {
+            SetVisualState(VisualState.Normal);
+        }
+
+        private void OnMousePressed(InputEvent _)
+        {
+            if (!_button.Disabled)
+                SetVisualState(VisualState.Pressed);
+        }
+
+        private void OnMouseReleased(InputEvent _)
+        {
+            if (!_button.Disabled)
+                SetVisualState(VisualState.Hover);
+        }
+
+        private void SetVisualState(VisualState state)
+        {
+            if (!GodotObject.IsInstanceValid(_button))
+                return;
+
+            StyleBox? style = state switch
+            {
+                VisualState.Hover => _hoverStyle ?? _normalStyle,
+                VisualState.Pressed => _pressedStyle ?? _normalStyle,
+                _ => _normalStyle
+            };
+            if (style is not null)
+                _button.AddThemeStyleboxOverride("normal", style);
+        }
     }
 
     internal static LineEdit LineEdit(string placeholder, bool secret = false, int maxLength = 64)

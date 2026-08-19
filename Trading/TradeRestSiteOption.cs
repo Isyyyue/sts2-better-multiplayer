@@ -6,6 +6,7 @@ using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Entities.RestSite;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
+using MegaCrit.Sts2.Core.Nodes.RestSite;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 
 namespace BetterMultiplayer.Trading;
@@ -22,12 +23,38 @@ internal sealed class TradeRestSiteOption(Player owner) : CustomRestSiteOption(o
 
     public override async Task<bool> OnSelect()
     {
+        BetterMultiplayerMod.Logger.Info(
+            $"Rest-site trade option selected: player={_owner.NetId}");
         Task<bool> result = TradeRestSiteFlow.WaitForResult(_owner.NetId);
         if (LocalContext.IsMe(_owner) && NRestSiteRoom.Instance is { } room)
             TradeOverlay.Show(room, TradeLocation.RestSite);
 
         await result;
         return false;
+    }
+}
+
+[HarmonyPatch(typeof(NRestSiteButton), nameof(NRestSiteButton._Ready))]
+internal static class TradeRestSiteButtonLayoutPatch
+{
+    [HarmonyPostfix]
+    private static void Postfix(NRestSiteButton __instance)
+    {
+        if (__instance.Option is not TradeRestSiteOption &&
+            __instance.Option is not AssistSmithRestSiteOption)
+            return;
+
+        TextureRect? icon = Traverse.Create(__instance)
+            .Field("_icon")
+            .GetValue<TextureRect>();
+        if (icon is null)
+            return;
+
+        // The custom artwork is 4:3 while the game's icon slot is nearly square.
+        // Covering the slot removes the original yellow side strips; only a small
+        // amount of the artwork edge is cropped.
+        icon.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+        icon.StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered;
     }
 }
 

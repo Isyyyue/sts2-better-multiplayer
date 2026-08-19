@@ -56,6 +56,8 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
 
     public override async Task<bool> OnSelect()
     {
+        BetterMultiplayerMod.Logger.Info(
+            $"Assist Smith option selected: player={_owner.NetId}");
         AssistSmithCoordinator.Register(_owner.NetId);
         Task<AssistSmithResult> resultTask = AssistSmithFlow.WaitForResult(_owner.NetId);
 

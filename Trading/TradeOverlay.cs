@@ -84,6 +84,7 @@ internal sealed class TradeOverlay
 
     internal static void Show(Node parent, TradeLocation location)
     {
+        BetterMultiplayerMod.Logger.Info($"Trade overlay shown: location={location}");
         Node uiParent = NModalContainer.Instance ?? parent;
         uiParent.GetNodeOrNull<Control>("BetterMultiplayerTradeOverlay")?.QueueFree();
         _ = new TradeOverlay(parent, location);
@@ -756,7 +757,7 @@ internal sealed class TradeOverlay
         tile.AddThemeStyleboxOverride("hover", UiFactory.PanelStyle(background.Lightened(0.08f), UiFactory.Accent, 2, 5));
         tile.AddThemeStyleboxOverride("pressed", UiFactory.PanelStyle(background.Darkened(0.08f), UiFactory.Accent, 3, 5));
         if (onPressed is not null)
-            tile.Pressed += onPressed;
+            UiFactory.AttachNativeInput(tile, onPressed);
         return tile;
     }
 

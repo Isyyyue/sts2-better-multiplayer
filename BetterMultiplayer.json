@@ -3,7 +3,7 @@
   "name": "更好的联机 / Better Multiplayer",
   "author": "14317",
   "description": "保留官方好友联机，新增密码房间、篝火交易、帮助队友锻造和商店金币交易。Keeps official friend multiplayer and adds password rooms, Rest Site trades, Smith for a Teammate, and gold trading at merchants.",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "min_game_version": "0.107.1",
   "has_pck": false,
   "has_dll": true,
