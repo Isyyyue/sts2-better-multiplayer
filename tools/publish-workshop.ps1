@@ -121,6 +121,31 @@ $expectedProductVersion = "$($sourceManifest.version)+$headCommit"
 if ($packagedDll.VersionInfo.ProductVersion -ne $expectedProductVersion) {
     throw "DLL ProductVersion must be $expectedProductVersion, got $($packagedDll.VersionInfo.ProductVersion)"
 }
+$expectedContentBytes = [int64]((Get-ChildItem -LiteralPath $workspaceContentPath -File | Measure-Object -Property Length -Sum).Sum)
+
+$publishedFileDetailsUri = 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/'
+function Get-PublishedFileDetails {
+    param(
+        [Parameter(Mandatory)]
+        [string]$PublishedFileId
+    )
+
+    try {
+        $response = Invoke-RestMethod -Method Post -Uri $publishedFileDetailsUri -Body @{
+            itemcount = '1'
+            'publishedfileids[0]' = $PublishedFileId
+        } -TimeoutSec 20
+        $details = @($response.response.publishedfiledetails)[0]
+        if ($null -eq $details -or [int]$details.result -ne 1) {
+            return $null
+        }
+        return $details
+    }
+    catch {
+        Write-Verbose "Could not query Steam Workshop details: $($_.Exception.Message)"
+        return $null
+    }
+}
 
 if ($ValidateOnly) {
     $dllHash = (Get-FileHash -LiteralPath $packagedDll.FullName -Algorithm SHA256).Hash
@@ -137,6 +162,11 @@ if ($null -ne (Get-Process -Name SlayTheSpire2 -ErrorAction SilentlyContinue)) {
     throw 'Slay the Spire 2 is running. Close the game before uploading.'
 }
 
+$detailsBefore = Get-PublishedFileDetails -PublishedFileId $WorkshopId
+$previousManifest = if ($null -eq $detailsBefore) { '' } else { [string]$detailsBefore.hcontent_file }
+$previousUpdated = if ($null -eq $detailsBefore) { 0L } else { [int64]$detailsBefore.time_updated }
+
+$uploadExitCode = 1
 Push-Location -LiteralPath $uploaderDirectoryFull
 try {
     & $uploaderPath upload --workspace $workspaceFull --id $WorkshopId
@@ -151,17 +181,44 @@ if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) {
 }
 
 $logText = Get-Content -LiteralPath $logPath -Raw
+$successText = "Successfully uploaded '更好的联机 / Better Multiplayer' to the workshop with id $WorkshopId!"
+$uploaderReportedSuccess = $uploadExitCode -eq 0 -and $logText.Contains($successText)
+
+# Steam can commit the update while the uploader times out waiting for the final callback.
+# Poll the published item before deciding whether a retry is necessary.
+$detailsAfter = $null
+$remoteCommitVerified = $false
+$verificationDeadline = (Get-Date).AddSeconds(90)
+do {
+    $detailsAfter = Get-PublishedFileDetails -PublishedFileId $WorkshopId
+    if ($null -ne $detailsAfter) {
+        $currentManifest = [string]$detailsAfter.hcontent_file
+        $currentUpdated = [int64]$detailsAfter.time_updated
+        $currentSize = [int64]$detailsAfter.file_size
+        $remoteChanged = $null -eq $detailsBefore -or $currentManifest -ne $previousManifest -or $currentUpdated -gt $previousUpdated
+        if ($remoteChanged -and $currentSize -eq $expectedContentBytes) {
+            $remoteCommitVerified = $true
+            break
+        }
+    }
+    if ((Get-Date) -lt $verificationDeadline) {
+        Start-Sleep -Seconds 5
+    }
+} while ((Get-Date) -lt $verificationDeadline)
+
+if (-not $remoteCommitVerified) {
+    throw "Workshop upload could not be verified. Exit=$uploadExitCode. The uploader log was not archived so a retry will not create a duplicate release record."
+}
+
+if (-not $uploaderReportedSuccess) {
+    Write-Warning 'The uploader reported a timeout or non-success result, but Steam API confirms the new content was committed. Do not retry this upload.'
+}
+
 $recordDirectory = Join-Path $repoRoot 'artifacts\release-records'
 New-Item -ItemType Directory -Path $recordDirectory -Force | Out-Null
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $recordPath = Join-Path $recordDirectory "mod-uploader-$timestamp.log"
 Copy-Item -LiteralPath $logPath -Destination $recordPath
-
-$successText = "Successfully uploaded '更好的联机 / Better Multiplayer' to the workshop with id $WorkshopId!"
-$knownFailurePattern = '(?im)failed|couldn''t|error occurred|workshop legal agreement'
-if ($uploadExitCode -ne 0 -or $logText -match $knownFailurePattern -or -not $logText.Contains($successText)) {
-    throw "Workshop upload could not be verified. Exit=$uploadExitCode. Review $recordPath"
-}
 
 Write-Host "Workshop upload completed: $WorkshopId"
 Write-Host "Archived uploader log: $recordPath"
