@@ -60,7 +60,7 @@ internal sealed record DiagnosticEntry(
 internal static class DiagnosticRecorder
 {
     internal const int Capacity = 48;
-    internal static readonly TimeSpan Retention = TimeSpan.FromMinutes(30);
+    internal static readonly TimeSpan Retention = TimeSpan.FromDays(3);
 
     private static readonly object Gate = new();
     private static readonly Queue<DiagnosticEntry> Entries = new(Capacity);

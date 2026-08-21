@@ -23,15 +23,20 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
     }
 
     [Fact]
-    public void RecorderDropsEventsAfterRetentionWindow()
+    public void RecorderUsesExactThreeDayRetentionWindow()
     {
         DiagnosticRecorder.ResetForTests();
         DiagnosticRecorder.RecordFeedbackRequested();
+        DiagnosticEntry entry = Assert.Single(DiagnosticRecorder.Snapshot());
 
-        IReadOnlyList<DiagnosticEntry> snapshot = DiagnosticRecorder.Snapshot(
-            DateTimeOffset.UtcNow + DiagnosticRecorder.Retention + TimeSpan.FromSeconds(1));
+        IReadOnlyList<DiagnosticEntry> atBoundary = DiagnosticRecorder.Snapshot(
+            entry.Timestamp + DiagnosticRecorder.Retention);
+        IReadOnlyList<DiagnosticEntry> afterBoundary = DiagnosticRecorder.Snapshot(
+            entry.Timestamp + DiagnosticRecorder.Retention + TimeSpan.FromTicks(1));
 
-        Assert.Empty(snapshot);
+        Assert.Equal(TimeSpan.FromDays(3), DiagnosticRecorder.Retention);
+        Assert.Single(atBoundary);
+        Assert.Empty(afterBoundary);
     }
 
     [Fact]
@@ -119,7 +124,7 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
     }
 
     [Fact]
-    public void EventPayloadExcludesExpiredAndFutureDiagnosticEntries()
+    public void EventPayloadIncludesExactThreeDayBoundaryAndExcludesOutsideEntries()
     {
         DateTimeOffset createdAt = DateTimeOffset.Parse("2026-08-21T04:00:00Z");
         DiagnosticEntry expired = new(
@@ -128,21 +133,27 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
             DiagnosticEventCode.MerchantRoomReady,
             DiagnosticControlId.None,
             null);
-        DiagnosticEntry current = new(
+        DiagnosticEntry boundary = new(
             2,
+            createdAt - DiagnosticRecorder.Retention,
+            DiagnosticEventCode.MerchantRoomReady,
+            DiagnosticControlId.None,
+            null);
+        DiagnosticEntry current = new(
+            3,
             createdAt - TimeSpan.FromMinutes(1),
             DiagnosticEventCode.FeedbackRequested,
             DiagnosticControlId.SendFeedback,
             null);
         DiagnosticEntry future = new(
-            3,
+            4,
             createdAt + TimeSpan.FromMilliseconds(1),
             DiagnosticEventCode.TradeOverlayShown,
             DiagnosticControlId.None,
             null);
 
         FeedbackEventPayload payload = FeedbackEventFactory.Create(
-            [expired, current, future],
+            [expired, boundary, current, future],
             SafeSystem(),
             Guid.Parse("fc6d8c0c-43fc-4630-ad85-0ee518f1b9d0"),
             createdAt);
@@ -151,9 +162,12 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
         JsonElement events = document.RootElement.GetProperty("extra")
             .GetProperty("diagnostics")
             .GetProperty("events");
-        Assert.Equal(1, events.GetArrayLength());
+        Assert.Equal(TimeSpan.FromDays(3), DiagnosticRecorder.Retention);
+        Assert.Equal(2, events.GetArrayLength());
         Assert.Equal(2, events[0].GetProperty("sequence").GetInt64());
-        Assert.Equal(60000, events[0].GetProperty("age_ms").GetInt64());
+        Assert.Equal(259_200_000, events[0].GetProperty("age_ms").GetInt64());
+        Assert.Equal(3, events[1].GetProperty("sequence").GetInt64());
+        Assert.Equal(60_000, events[1].GetProperty("age_ms").GetInt64());
     }
 
     [Fact]

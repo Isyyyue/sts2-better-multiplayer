@@ -11,7 +11,7 @@ namespace BetterMultiplayer;
 public static class BetterMultiplayerMod
 {
     public const string ModId = "BetterMultiplayer";
-    public const string Version = "0.5.0";
+    public const string Version = "0.5.1";
 
     internal static StsLogger Logger { get; } = new(ModId, LogType.Generic);
 
