@@ -3,11 +3,13 @@ using HarmonyLib;
 using MegaCrit.Sts2.Core.Multiplayer;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
+using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.Screens.Map;
 using MegaCrit.Sts2.Core.Runs;
 using BetterMultiplayer.Localization;
 using BetterMultiplayer.UI;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
 
@@ -24,6 +26,7 @@ internal static class MerchantTradePatch
         if (playerCount <= 1)
             return;
 
+        DiagnosticRecorder.RecordMerchantRoom();
         TradeCoordinator.BeginLocation(TradeLocation.Merchant);
         Node uiParent = (Node?)NModalContainer.Instance ?? __instance;
         if (uiParent.GetNodeOrNull<Control>("BetterMultiplayerGoldTrade") is not null)
@@ -46,8 +49,14 @@ internal static class MerchantTradePatch
         };
         Button button = UiFactory.Button(
             ModText.Get(TextKey.GoldTrade),
-            () => TradeOverlay.Show(__instance, TradeLocation.Merchant),
-            primary: true);
+            () =>
+            {
+                DiagnosticRecorder.RecordTradeOverlayRequested();
+                TradeOverlay.Show(__instance, TradeLocation.Merchant);
+            },
+            primary: true,
+            diagnosticId: "merchant_gold_trade");
+        button.Name = "GoldTradeButton";
         button.CustomMinimumSize = new Vector2(230, 64);
         button.AddThemeFontSizeOverride("font_size", 20);
         button.Icon = TradeAssets.GoldTradeIcon;
@@ -63,6 +72,13 @@ internal static class MerchantTradePatch
         ModText.LanguageChanged += updateText;
         toolbar.AddChild(button);
         uiParent.AddChild(toolbar);
+        Callable.From(() =>
+        {
+            if (!GodotObject.IsInstanceValid(button))
+                return;
+            if (button.GetNodeOrNull<NButton>("BetterMultiplayerNativeInput") is { } input)
+                DiagnosticRecorder.RecordMerchantButtonAdded(button, input);
+        }).CallDeferred();
 
         NMapScreen? map = NMapScreen.Instance;
         Callable hide = Callable.From(() => toolbar.Visible = false);

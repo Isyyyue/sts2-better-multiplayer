@@ -8,6 +8,7 @@ using MegaCrit.Sts2.Core.Runs;
 using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.UI;
 using BetterMultiplayer.Localization;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
 
@@ -88,6 +89,7 @@ internal sealed class TradeOverlay
         Node uiParent = NModalContainer.Instance ?? parent;
         uiParent.GetNodeOrNull<Control>("BetterMultiplayerTradeOverlay")?.QueueFree();
         _ = new TradeOverlay(parent, location);
+        DiagnosticRecorder.RecordTradeOverlayShown();
     }
 
     private void OnStateChanged()

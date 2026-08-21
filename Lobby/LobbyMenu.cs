@@ -15,6 +15,7 @@ using MegaCrit.Sts2.addons.mega_text;
 using BetterMultiplayer.Trading;
 using BetterMultiplayer.UI;
 using BetterMultiplayer.Localization;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Lobby;
 
@@ -38,6 +39,7 @@ internal sealed class LobbyMenu
     private bool _closed;
     private LobbyMenuExitReason _exitReason = LobbyMenuExitReason.UserBack;
     private Page _page;
+    private int _pageGeneration;
     private string _createRoomName = string.Empty;
     private string _createPassword = string.Empty;
 
@@ -65,6 +67,7 @@ internal sealed class LobbyMenu
     private void ShowEntry()
     {
         _page = Page.Entry;
+        _pageGeneration++;
         ClearBody();
         SetStatus(string.Empty, error: false);
         ShowBackButton();
@@ -99,11 +102,79 @@ internal sealed class LobbyMenu
             hideDescription: false,
             description: ModText.Get(TextKey.CreateRoomDescription)));
         _body.AddChild(choices);
+
+        Button feedback = null!;
+        feedback = UiFactory.Button(
+            ModText.Get(TextKey.SendFeedback),
+            () => TaskHelper.RunSafely(SendDiagnosticFeedback(feedback)),
+            diagnosticId: "send_feedback");
+        feedback.Name = "SendDiagnosticFeedbackButton";
+        feedback.TooltipText = ModText.Get(TextKey.SendFeedbackTooltip);
+        feedback.CustomMinimumSize = new Vector2(210, 54);
+        HBoxContainer feedbackRow = new() { Alignment = BoxContainer.AlignmentMode.End };
+        feedbackRow.AddChild(feedback);
+        _body.AddChild(feedbackRow);
+    }
+
+    private async Task SendDiagnosticFeedback(Button button)
+    {
+        if (button.Disabled)
+            return;
+
+        int pageGeneration = _pageGeneration;
+        button.Disabled = true;
+        UiFactory.SyncNativeInput(button);
+        SetStatus(ModText.Get(TextKey.SendingFeedback), error: false);
+
+        FeedbackSendResult result;
+        try
+        {
+            result = await DiagnosticFeedbackService.SendAsync(button);
+        }
+        catch (Exception ex)
+        {
+            BetterMultiplayerMod.Logger.Warn(
+                $"Diagnostic feedback failed unexpectedly: type={ex.GetType().Name}");
+            result = new FeedbackSendResult(FeedbackSendStatus.NetworkFailed, string.Empty);
+        }
+
+        Callable.From(() => FinishDiagnosticFeedback(button, result, pageGeneration)).CallDeferred();
+    }
+
+    private void FinishDiagnosticFeedback(
+        Button button,
+        FeedbackSendResult result,
+        int pageGeneration)
+    {
+        if (_closed || _page != Page.Entry || _pageGeneration != pageGeneration ||
+            !GodotObject.IsInstanceValid(button))
+            return;
+
+        button.Disabled = false;
+        UiFactory.SyncNativeInput(button);
+
+        switch (result.Status)
+        {
+            case FeedbackSendStatus.Submitted:
+                string report = result.EventId.Length >= 8 ? result.EventId[..8] : result.EventId;
+                SetStatus(ModText.Get(TextKey.FeedbackSubmitted, report), error: false);
+                break;
+            case FeedbackSendStatus.Busy:
+                SetStatus(ModText.Get(TextKey.FeedbackBusy), error: false);
+                break;
+            case FeedbackSendStatus.RateLimited:
+                SetStatus(ModText.Get(TextKey.FeedbackRateLimited), error: true);
+                break;
+            default:
+                SetStatus(ModText.Get(TextKey.FeedbackFailed), error: true);
+                break;
+        }
     }
 
     private void ShowJoin()
     {
         _page = Page.Join;
+        _pageGeneration++;
         ClearBody();
         SetStatus(string.Empty, error: false);
         ShowBackButton();
@@ -131,6 +202,7 @@ internal sealed class LobbyMenu
     private void ShowCreate()
     {
         _page = Page.Create;
+        _pageGeneration++;
         ClearBody();
         SetStatus(string.Empty, error: false);
         ShowBackButton();
@@ -267,6 +339,7 @@ internal sealed class LobbyMenu
     private void ShowSaveChoice()
     {
         _page = Page.SaveChoice;
+        _pageGeneration++;
         ClearBody();
         SetStatus(string.Empty, error: false);
         ShowBackButton();

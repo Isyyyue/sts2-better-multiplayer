@@ -1,6 +1,7 @@
 using Godot;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using BetterMultiplayer.Diagnostics;
 using BetterMultiplayer.Localization;
 
 namespace BetterMultiplayer.UI;
@@ -282,7 +283,12 @@ internal static class UiFactory
         return label;
     }
 
-    internal static Button Button(string text, Action onPressed, bool primary = false, bool danger = false)
+    internal static Button Button(
+        string text,
+        Action onPressed,
+        bool primary = false,
+        bool danger = false,
+        string? diagnosticId = null)
     {
         Button button = new()
         {
@@ -297,7 +303,7 @@ internal static class UiFactory
         button.AddThemeStyleboxOverride("hover", PanelStyle(hover, Accent, 1, 5));
         button.AddThemeStyleboxOverride("pressed", PanelStyle(background.Darkened(0.1f), Accent, 2, 5));
         button.AddThemeColorOverride("font_color", primary ? Colors.Black : Colors.White);
-        AttachNativeInput(button, onPressed);
+        AttachNativeInput(button, onPressed, diagnosticId);
         return button;
     }
 
@@ -306,12 +312,15 @@ internal static class UiFactory
     /// in place as the visual skin. The game-wide input layer does not reliably
     /// deliver clicks to ordinary Godot Buttons when an overlay is active.
     /// </summary>
-    internal static void AttachNativeInput(Button button, Action onReleased)
+    internal static void AttachNativeInput(
+        Button button,
+        Action onReleased,
+        string? diagnosticId = null)
     {
         if (button.GetNodeOrNull<NButton>("BetterMultiplayerNativeInput") is not null)
             return;
 
-        NativeInputBinding binding = new(button, onReleased);
+        NativeInputBinding binding = new(button, onReleased, diagnosticId);
         button.AddChild(binding.Input);
         button.MouseFilter = Control.MouseFilterEnum.Ignore;
         binding.Input.SetEnabled(!button.Disabled);
@@ -333,15 +342,17 @@ internal static class UiFactory
         }
 
         private readonly Button _button;
+        private readonly string? _diagnosticId;
         private readonly StyleBox? _normalStyle;
         private readonly StyleBox? _hoverStyle;
         private readonly StyleBox? _pressedStyle;
 
         internal NButton Input { get; }
 
-        internal NativeInputBinding(Button button, Action onReleased)
+        internal NativeInputBinding(Button button, Action onReleased, string? diagnosticId)
         {
             _button = button;
+            _diagnosticId = diagnosticId;
             _normalStyle = button.GetThemeStylebox("normal");
             _hoverStyle = button.GetThemeStylebox("hover");
             _pressedStyle = button.GetThemeStylebox("pressed");
@@ -362,6 +373,7 @@ internal static class UiFactory
                 if (!GodotObject.IsInstanceValid(_button) || _button.Disabled)
                     return;
 
+                RecordInput("released");
                 BetterMultiplayerMod.Logger.Info(
                     $"Native button released: text=\"{_button.Text}\", name={_button.Name}");
                 onReleased();
@@ -372,25 +384,39 @@ internal static class UiFactory
         {
             if (!GodotObject.IsInstanceValid(_button))
                 return;
+            RecordInput("focused");
             Input.TooltipText = _button.TooltipText;
             SetVisualState(_button.Disabled ? VisualState.Normal : VisualState.Hover);
         }
 
         private void OnUnfocused(NClickableControl _)
         {
+            RecordInput("unfocused");
             SetVisualState(VisualState.Normal);
         }
 
         private void OnMousePressed(InputEvent _)
         {
+            RecordInput("mouse_pressed");
             if (!_button.Disabled)
                 SetVisualState(VisualState.Pressed);
         }
 
         private void OnMouseReleased(InputEvent _)
         {
+            RecordInput("mouse_released");
             if (!_button.Disabled)
                 SetVisualState(VisualState.Hover);
+        }
+
+        private void RecordInput(string stage)
+        {
+            if (_diagnosticId is null ||
+                !GodotObject.IsInstanceValid(_button) ||
+                !GodotObject.IsInstanceValid(Input))
+                return;
+
+            DiagnosticRecorder.RecordControl(stage, _diagnosticId, _button, Input);
         }
 
         private void SetVisualState(VisualState state)
