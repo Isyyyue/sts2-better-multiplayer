@@ -1,5 +1,6 @@
 using BaseLib.Abstracts;
 using MegaCrit.Sts2.Core.Multiplayer.Serialization;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading.Messages;
 
@@ -161,7 +162,8 @@ public sealed class AvailabilityEvent : ICustomMessage
         {
             if (!Available && Location == TradeLocation.RestSite)
                 TradeRestSiteFlow.Complete(PlayerId, success: false);
-            TradeStateStore.SetAvailability(PlayerId, Available, Location);
+            bool changed = TradeStateStore.SetAvailability(PlayerId, Available, Location);
+            DiagnosticRecorder.RecordAvailabilityReceived(Location, Available, changed);
         }
     }
 
@@ -190,6 +192,17 @@ public sealed class SessionEvent : ICustomMessage
         if (TradeNetwork.IsHostSender(senderId))
         {
             TradeStateStore.SetSession(Snapshot);
+            DiagnosticRecorder.RecordSessionChanged(
+                Snapshot.Location,
+                Snapshot.Status switch
+                {
+                    TradeSessionStatus.Pending => "pending",
+                    TradeSessionStatus.Active => "active",
+                    TradeSessionStatus.Committing => "committing",
+                    TradeSessionStatus.Committed => "committed",
+                    TradeSessionStatus.Canceled => "canceled",
+                    _ => "unknown"
+                });
         }
     }
 

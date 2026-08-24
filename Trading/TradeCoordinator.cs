@@ -5,6 +5,7 @@ using MegaCrit.Sts2.Core.Multiplayer;
 using MegaCrit.Sts2.Core.Runs;
 using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.Localization;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
 
@@ -14,25 +15,83 @@ internal static class TradeCoordinator
     private static readonly Dictionary<ulong, int> AvailableGold = [];
     private static readonly Dictionary<ulong, TradeSessionSnapshot> Sessions = [];
     private static readonly Dictionary<ulong, ulong> SessionByPlayer = [];
+    private static TradeLocation? _activeLocation;
 
     internal static void SetAvailable(ulong playerId, bool available, TradeLocation location, int reportedGold)
     {
-        if (!Enum.IsDefined(location) || !IsRunPlayer(playerId))
+        if (!Enum.IsDefined(location))
+        {
+            DiagnosticRecorder.RecordAvailabilityHandled(
+                location,
+                available,
+                accepted: false,
+                changed: false,
+                reason: "invalid_location");
             return;
+        }
+
+        if (_activeLocation is null)
+        {
+            // A late message from an overlay that is already leaving must not
+            // reopen a location after its lifecycle cleanup ran.
+            DiagnosticRecorder.RecordAvailabilityHandled(
+                location,
+                available,
+                accepted: false,
+                changed: false,
+                reason: "no_active_location");
+            return;
+        }
+        else if (_activeLocation != location)
+        {
+            DiagnosticRecorder.RecordAvailabilityHandled(
+                location,
+                available,
+                accepted: false,
+                changed: false,
+                reason: "wrong_location");
+            return;
+        }
+
+        if (!IsRunPlayer(playerId))
+        {
+            DiagnosticRecorder.RecordAvailabilityHandled(
+                location,
+                available,
+                accepted: false,
+                changed: false,
+                reason: "not_run_player");
+            return;
+        }
 
         if (available && location == TradeLocation.Merchant &&
             !TradeGoldBalance.TryValidateOffer(reportedGold, 0, out string goldError))
         {
+            DiagnosticRecorder.RecordAvailabilityHandled(
+                location,
+                available,
+                accepted: false,
+                changed: false,
+                reason: "invalid_gold");
             Error(playerId, goldError);
             return;
         }
+
+        bool changed = available
+            ? !AvailablePlayers.TryGetValue(playerId, out TradeLocation current) ||
+                current != location ||
+                (location == TradeLocation.Merchant &&
+                    AvailableGold.GetValueOrDefault(playerId) != reportedGold)
+            : AvailablePlayers.TryGetValue(playerId, out TradeLocation existing) &&
+                existing == location;
 
         if (available)
         {
             AvailablePlayers[playerId] = location;
             AvailableGold[playerId] = location == TradeLocation.Merchant ? reportedGold : 0;
         }
-        else if (AvailablePlayers.TryGetValue(playerId, out TradeLocation current) && current == location)
+        else if (AvailablePlayers.TryGetValue(playerId, out TradeLocation existingLocation) &&
+            existingLocation == location)
         {
             AvailablePlayers.Remove(playerId);
             AvailableGold.Remove(playerId);
@@ -45,6 +104,17 @@ internal static class TradeCoordinator
             Available = available,
             Location = location
         });
+        DiagnosticRecorder.RecordAvailabilityHandled(
+            location,
+            available,
+            accepted: true,
+            changed: changed,
+            reason: "accepted");
+
+        // Replay the current host view so a peer that missed an earlier event
+        // can recover without reopening the overlay.
+        if (available)
+            BroadcastAvailabilitySnapshot();
     }
 
     internal static void Invite(ulong senderId, ulong targetId)
@@ -55,6 +125,9 @@ internal static class TradeCoordinator
             location != targetLocation ||
             !IsConnected(targetId))
         {
+            DiagnosticRecorder.RecordInviteRejected(
+                _activeLocation ?? TradeLocation.Merchant,
+                "not_available");
             Error(senderId, ModText.Token(TextKey.PartnerNotAtTradeScreen));
             return;
         }
@@ -62,12 +135,14 @@ internal static class TradeCoordinator
         if (location == TradeLocation.RestSite &&
             (TradeUsageTracker.HasUsed(senderId) || TradeUsageTracker.HasUsed(targetId)))
         {
+            DiagnosticRecorder.RecordInviteRejected(location, "used");
             Error(senderId, ModText.Token(TextKey.RestSiteTradeAlreadyUsed));
             return;
         }
 
         if (SessionByPlayer.ContainsKey(senderId) || SessionByPlayer.ContainsKey(targetId))
         {
+            DiagnosticRecorder.RecordInviteRejected(location, "already_trading");
             Error(senderId, ModText.Token(TextKey.PlayerAlreadyTrading));
             return;
         }
@@ -87,6 +162,7 @@ internal static class TradeCoordinator
         Sessions[sessionId] = snapshot;
         SessionByPlayer[senderId] = sessionId;
         SessionByPlayer[targetId] = sessionId;
+        DiagnosticRecorder.RecordSessionChanged(location, "pending");
         BroadcastSnapshot(snapshot);
     }
 
@@ -102,6 +178,7 @@ internal static class TradeCoordinator
 
         if (!accepted)
         {
+            DiagnosticRecorder.RecordSessionChanged(session.Location, "canceled");
             EndSession(session, TradeSessionStatus.Canceled);
             return;
         }
@@ -119,6 +196,7 @@ internal static class TradeCoordinator
 
         session.Status = TradeSessionStatus.Active;
         session.Revision++;
+        DiagnosticRecorder.RecordSessionChanged(session.Location, "active");
         BroadcastSnapshot(session);
     }
 
@@ -232,6 +310,12 @@ internal static class TradeCoordinator
         AvailableGold.Remove(playerId);
 
         CancelForPlayer(playerId);
+        DiagnosticRecorder.RecordAvailabilityHandled(
+            location,
+            available: false,
+            accepted: true,
+            changed: true,
+            reason: "disconnected");
         TradeNetwork.Broadcast(new AvailabilityEvent
         {
             PlayerId = playerId,
@@ -242,6 +326,15 @@ internal static class TradeCoordinator
 
     internal static void BeginLocation(TradeLocation location)
     {
+        if (_activeLocation == location)
+        {
+            DiagnosticRecorder.RecordTradeLocationStarted(location, duplicate: true);
+            return;
+        }
+
+        TradeLocation? previous = _activeLocation;
+        _activeLocation = location;
+        DiagnosticRecorder.RecordTradeLocationStarted(location, duplicate: false);
         foreach (TradeSessionSnapshot session in Sessions.Values.ToList())
             EndSession(session, TradeSessionStatus.Canceled);
         AvailablePlayers.Clear();
@@ -249,6 +342,9 @@ internal static class TradeCoordinator
         Sessions.Clear();
         SessionByPlayer.Clear();
         TradeStateStore.Reset();
+        DiagnosticRecorder.RecordTradeStateReset(
+            location,
+            previous.HasValue ? "location_changed" : "initialized");
         if (location == TradeLocation.RestSite)
         {
             TradeUsageTracker.BeginRestSite();
@@ -257,8 +353,24 @@ internal static class TradeCoordinator
         }
     }
 
+    internal static void EndLocation(TradeLocation location)
+    {
+        if (_activeLocation != location)
+            return;
+
+        foreach (TradeSessionSnapshot session in Sessions.Values.ToList())
+            EndSession(session, TradeSessionStatus.Canceled);
+        AvailablePlayers.Clear();
+        AvailableGold.Clear();
+        Sessions.Clear();
+        SessionByPlayer.Clear();
+        TradeStateStore.Reset();
+        _activeLocation = null;
+    }
+
     internal static void Reset()
     {
+        _activeLocation = null;
         AvailablePlayers.Clear();
         AvailableGold.Clear();
         Sessions.Clear();
@@ -268,6 +380,7 @@ internal static class TradeCoordinator
         TradeUsageTracker.Reset();
         TradeRestSiteFlow.Reset();
         AssistSmithCoordinator.Reset();
+        DiagnosticRecorder.RecordTradeStateReset(null, "cleanup");
     }
 
     private static async Task Commit(TradeSessionSnapshot session)
@@ -313,6 +426,7 @@ internal static class TradeCoordinator
         }
 
         session.Status = TradeSessionStatus.Committing;
+        DiagnosticRecorder.RecordSessionChanged(session.Location, "committing");
         BroadcastSnapshot(session);
         TradeSessionSnapshot committed = session.Clone();
         committed.Status = TradeSessionStatus.Committed;
@@ -326,6 +440,7 @@ internal static class TradeCoordinator
         }
 
         TradeStateStore.MarkHostCommit(committed);
+        DiagnosticRecorder.RecordSessionChanged(session.Location, "committed");
         TradeNetwork.Broadcast(new CommitEvent { Snapshot = committed }, applyLocally: false);
         RemoveSession(session);
         if (session.Location == TradeLocation.RestSite)
@@ -352,6 +467,17 @@ internal static class TradeCoordinator
     private static void EndSession(TradeSessionSnapshot session, TradeSessionStatus status)
     {
         session.Status = status;
+        DiagnosticRecorder.RecordSessionChanged(
+            session.Location,
+            status switch
+            {
+                TradeSessionStatus.Pending => "pending",
+                TradeSessionStatus.Active => "active",
+                TradeSessionStatus.Committing => "committing",
+                TradeSessionStatus.Committed => "committed",
+                TradeSessionStatus.Canceled => "canceled",
+                _ => "unknown"
+            });
         BroadcastSnapshot(session);
         RemoveSession(session);
     }
@@ -391,6 +517,19 @@ internal static class TradeCoordinator
 
     private static void BroadcastSnapshot(TradeSessionSnapshot snapshot) =>
         TradeNetwork.Broadcast(new SessionEvent { Snapshot = snapshot.Clone() });
+
+    private static void BroadcastAvailabilitySnapshot()
+    {
+        foreach ((ulong playerId, TradeLocation location) in AvailablePlayers)
+        {
+            TradeNetwork.Broadcast(new AvailabilityEvent
+            {
+                PlayerId = playerId,
+                Available = true,
+                Location = location
+            });
+        }
+    }
 
     private static void Error(ulong targetId, string message)
     {

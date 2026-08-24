@@ -36,6 +36,9 @@ internal sealed class TradeOverlay
     private bool _announced;
     private bool _closed;
     private CancellationTokenSource? _offerSendCancellation;
+    private CancellationTokenSource? _availabilitySendCancellation;
+    private int _availabilityAttempt;
+    private bool _waitingRecorded;
     private Button? _confirmButton;
     private LineEdit? _goldInput;
     private bool _confirmAfterOfferSync;
@@ -61,26 +64,9 @@ internal sealed class TradeOverlay
         SyncDraft();
         Render();
 
-        if ((_location == TradeLocation.Merchant || !TradeUsageTracker.HasUsed(TradeNetwork.LocalPlayerId)) &&
-            CanUseNetwork())
-        {
-            try
-            {
-                _announced = true;
-                TradeNetwork.SendRequest(new AvailabilityRequest
-                {
-                    Available = true,
-                    Location = _location,
-                    ReportedGold = LocalGold()
-                });
-            }
-            catch (Exception ex)
-            {
-                _announced = false;
-                BetterMultiplayerMod.Logger.Error($"Publishing trade availability failed: {ex}");
-                SetStatus(ModText.Get(TextKey.TradeNetworkUnavailable), error: true);
-            }
-        }
+        if (_location == TradeLocation.Merchant ||
+            !TradeUsageTracker.HasUsed(TradeNetwork.LocalPlayerId))
+            StartAvailabilityAnnouncements();
     }
 
     internal static void Show(Node parent, TradeLocation location)
@@ -89,7 +75,7 @@ internal sealed class TradeOverlay
         Node uiParent = NModalContainer.Instance ?? parent;
         uiParent.GetNodeOrNull<Control>("BetterMultiplayerTradeOverlay")?.QueueFree();
         _ = new TradeOverlay(parent, location);
-        DiagnosticRecorder.RecordTradeOverlayShown();
+        DiagnosticRecorder.RecordTradeOverlayShown(location);
     }
 
     private void OnStateChanged()
@@ -236,11 +222,14 @@ internal sealed class TradeOverlay
         }
 
         int playerCount = 0;
+        int availableCount = 0;
         foreach (Player player in state.Players.Where(player => player.NetId != TradeNetwork.LocalPlayerId))
         {
             playerCount++;
             bool available = TradeStateStore.IsAvailable(player.NetId, _location);
             bool used = _location == TradeLocation.RestSite && TradeUsageTracker.HasUsed(player.NetId);
+            if (available && !used)
+                availableCount++;
 
             PanelContainer band = UiFactory.Band();
             band.CustomMinimumSize = new Vector2(690, 112);
@@ -265,6 +254,7 @@ internal sealed class TradeOverlay
 
             Button invite = UiFactory.Button(ModText.Get(TextKey.Trade), () =>
             {
+                DiagnosticRecorder.RecordInviteRequested(_location);
                 TradeNetwork.SendRequest(new InviteRequest { TargetId = player.NetId });
                 SetStatus(ModText.Get(TextKey.PlayerInvited, PlayerName(player.NetId)), error: false);
             }, primary: true);
@@ -277,6 +267,19 @@ internal sealed class TradeOverlay
 
         if (playerCount == 0)
             grid.AddChild(UiFactory.Label(ModText.Get(TextKey.NoOtherPlayers), 20, UiFactory.TextMuted));
+
+        if (availableCount == 0)
+        {
+            if (!_waitingRecorded)
+            {
+                DiagnosticRecorder.RecordWaitingForPlayers(_location, playerCount > 0);
+                _waitingRecorded = true;
+            }
+        }
+        else
+        {
+            _waitingRecorded = false;
+        }
 
         string error = TradeStateStore.LastError;
         SetStatus(
@@ -1008,7 +1011,81 @@ internal sealed class TradeOverlay
 
     private static bool CanUseNetwork()
     {
-        return RunManager.Instance.IsInProgress && RunManager.Instance.NetService.IsConnected;
+        try
+        {
+            return RunManager.Instance.IsInProgress && RunManager.Instance.NetService.IsConnected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void StartAvailabilityAnnouncements()
+    {
+        if (_availabilitySendCancellation is not null)
+            return;
+
+        _availabilitySendCancellation = new CancellationTokenSource();
+        TaskHelper.RunSafely(AvailabilityAnnouncementLoop(_availabilitySendCancellation.Token));
+    }
+
+    private async Task AvailabilityAnnouncementLoop(CancellationToken cancellationToken)
+    {
+        bool networkErrorShown = false;
+        while (!cancellationToken.IsCancellationRequested && !_closed)
+        {
+            if (_location == TradeLocation.RestSite &&
+                TradeUsageTracker.HasUsed(TradeNetwork.LocalPlayerId))
+            {
+                break;
+            }
+
+            if (CanUseNetwork())
+            {
+                int attempt = Math.Min(++_availabilityAttempt, 255);
+                try
+                {
+                    TradeNetwork.SendRequest(new AvailabilityRequest
+                    {
+                        Available = true,
+                        Location = _location,
+                        ReportedGold = LocalGold()
+                    });
+                    _announced = true;
+                    DiagnosticRecorder.RecordAvailabilitySent(
+                        _location,
+                        available: true,
+                        connected: true,
+                        host: TradeNetwork.IsHost,
+                        attempt);
+                    networkErrorShown = false;
+                }
+                catch (Exception ex)
+                {
+                    BetterMultiplayerMod.Logger.Warn(
+                        $"Publishing trade availability failed: {ex.Message}");
+                    if (!networkErrorShown)
+                    {
+                        Callable.From(() =>
+                        {
+                            if (!_closed)
+                                SetStatus(ModText.Get(TextKey.TradeNetworkUnavailable), error: true);
+                        }).CallDeferred();
+                        networkErrorShown = true;
+                    }
+                }
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
     }
 
     private void Close()
@@ -1033,6 +1110,9 @@ internal sealed class TradeOverlay
         if (GodotObject.IsInstanceValid(_sourceParent))
             _sourceParent.TreeExiting -= OnSourceTreeExiting;
         CancelQueuedOffer();
+        _availabilitySendCancellation?.Cancel();
+        _availabilitySendCancellation?.Dispose();
+        _availabilitySendCancellation = null;
         TradeStateStore.Changed -= OnStateChanged;
         if (_location == TradeLocation.RestSite)
             TradeRestSiteFlow.Complete(TradeNetwork.LocalPlayerId, success: false);
@@ -1047,6 +1127,12 @@ internal sealed class TradeOverlay
                     Location = _location,
                     ReportedGold = LocalGold()
                 });
+                DiagnosticRecorder.RecordAvailabilitySent(
+                    _location,
+                    available: false,
+                    connected: true,
+                    host: TradeNetwork.IsHost,
+                    attempt: 0);
             }
             catch (Exception ex)
             {

@@ -8,6 +8,7 @@ using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Nodes.RestSite;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
 
@@ -25,6 +26,7 @@ internal sealed class TradeRestSiteOption(Player owner) : CustomRestSiteOption(o
     {
         BetterMultiplayerMod.Logger.Info(
             $"Rest-site trade option selected: player={_owner.NetId}");
+        DiagnosticRecorder.RecordTradeOverlayRequested(TradeLocation.RestSite);
         Task<bool> result = TradeRestSiteFlow.WaitForResult(_owner.NetId);
         if (LocalContext.IsMe(_owner) && NRestSiteRoom.Instance is { } room)
             TradeOverlay.Show(room, TradeLocation.RestSite);
@@ -100,4 +102,11 @@ internal static class TradeRestSiteBeginPatch
 {
     [HarmonyPrefix]
     private static void Prefix() => TradeCoordinator.BeginLocation(TradeLocation.RestSite);
+}
+
+[HarmonyPatch(typeof(RestSiteSynchronizer), nameof(RestSiteSynchronizer.BeforeLocalRestSiteExited))]
+internal static class TradeRestSiteEndPatch
+{
+    [HarmonyPostfix]
+    private static void Postfix() => TradeCoordinator.EndLocation(TradeLocation.RestSite);
 }

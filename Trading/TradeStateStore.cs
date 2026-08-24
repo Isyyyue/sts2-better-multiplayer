@@ -1,5 +1,6 @@
 using MegaCrit.Sts2.Core.Helpers;
 using BetterMultiplayer.Localization;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
 
@@ -13,13 +14,27 @@ internal static class TradeStateStore
     internal static string LastError { get; private set; } = string.Empty;
     internal static event Action? Changed;
 
-    internal static void SetAvailability(ulong playerId, bool available, TradeLocation location)
+    internal static bool SetAvailability(ulong playerId, bool available, TradeLocation location)
     {
+        bool changed;
         if (available)
+        {
+            changed = !IsAvailable(playerId, location);
             AvailablePlayers[playerId] = location;
+        }
         else if (IsAvailable(playerId, location))
+        {
+            changed = true;
             AvailablePlayers.Remove(playerId);
-        Changed?.Invoke();
+        }
+        else
+        {
+            changed = false;
+        }
+
+        if (changed)
+            Changed?.Invoke();
+        return changed;
     }
 
     internal static void SetSession(TradeSessionSnapshot snapshot)
@@ -46,6 +61,7 @@ internal static class TradeStateStore
 
     internal static void MarkHostCommit(TradeSessionSnapshot snapshot)
     {
+        DiagnosticRecorder.RecordSessionChanged(snapshot.Location, "committed");
         if (snapshot.Location == TradeLocation.RestSite)
         {
             TradeRestSiteFlow.Complete(snapshot.PlayerA, success: true);
@@ -85,6 +101,9 @@ internal static class TradeStateStore
             CurrentSession = local;
             if (!success)
                 LastError = ModText.Token(TextKey.TradeSyncFailed);
+            DiagnosticRecorder.RecordSessionChanged(
+                snapshot.Location,
+                success ? "committed" : "canceled");
         }
         Changed?.Invoke();
     }

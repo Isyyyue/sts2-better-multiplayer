@@ -19,7 +19,7 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
 
         Assert.Equal(DiagnosticRecorder.Capacity, snapshot.Count);
         Assert.Equal(13, snapshot[0].Sequence);
-        Assert.Equal(60, snapshot[^1].Sequence);
+        Assert.Equal(DiagnosticRecorder.Capacity + 12L, snapshot[^1].Sequence);
     }
 
     [Fact]
@@ -195,6 +195,82 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
         Assert.Equal(eventBytes.Length, itemHeader.RootElement.GetProperty("length").GetInt32());
         Assert.Equal("event", itemHeader.RootElement.GetProperty("type").GetString());
         Assert.Equal(Encoding.UTF8.GetString(eventBytes), lines[2]);
+    }
+
+    [Fact]
+    public void TradeFactsIdentifyRestSiteHandshakeWithoutPlayerData()
+    {
+        DateTimeOffset createdAt = DateTimeOffset.Parse("2026-08-21T04:00:00Z");
+        DiagnosticEntry entry = new(
+            1,
+            createdAt - TimeSpan.FromSeconds(2),
+            DiagnosticEventCode.TradeAvailabilityReceived,
+            DiagnosticControlId.None,
+            null,
+            new DiagnosticTradeFacts(
+                Location: "rest_site",
+                Available: true,
+                Connected: true,
+                Host: false,
+                Attempt: 2,
+                Changed: true,
+                Reason: "host_event"));
+
+        FeedbackEventPayload payload = FeedbackEventFactory.Create(
+            [entry],
+            SafeSystem(),
+            Guid.Parse("fc6d8c0c-43fc-4630-ad85-0ee518f1b9d0"),
+            createdAt);
+
+        using JsonDocument document = JsonDocument.Parse(payload.EventBytes);
+        JsonElement root = document.RootElement;
+        Assert.Equal(
+            "rest_site_trade",
+            root.GetProperty("tags").GetProperty("report.code").GetString());
+        JsonElement facts = root.GetProperty("extra")
+            .GetProperty("diagnostics")
+            .GetProperty("events")[0]
+            .GetProperty("facts");
+        Assert.Equal("rest_site", facts.GetProperty("location").GetString());
+        Assert.True(facts.GetProperty("available").GetBoolean());
+        Assert.Equal(2, facts.GetProperty("attempt").GetInt32());
+        Assert.False(root.TryGetProperty("user", out _));
+        Assert.DoesNotContain("7656119", Encoding.UTF8.GetString(payload.EventBytes), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TradeFactsNormalizeUnknownValues()
+    {
+        DateTimeOffset createdAt = DateTimeOffset.Parse("2026-08-21T04:00:00Z");
+        DiagnosticEntry entry = new(
+            1,
+            createdAt,
+            DiagnosticEventCode.TradeStateReset,
+            DiagnosticControlId.None,
+            null,
+            new DiagnosticTradeFacts(
+                Location: "C:\\Users\\private",
+                Attempt: 999999,
+                Reason: "C:\\room-secret",
+                SessionStatus: "raw status"));
+
+        FeedbackEventPayload payload = FeedbackEventFactory.Create(
+            [entry],
+            SafeSystem(),
+            Guid.Parse("fc6d8c0c-43fc-4630-ad85-0ee518f1b9d0"),
+            createdAt);
+        string json = Encoding.UTF8.GetString(payload.EventBytes);
+
+        Assert.DoesNotContain("C:\\Users", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("room-secret", json, StringComparison.OrdinalIgnoreCase);
+        using JsonDocument document = JsonDocument.Parse(payload.EventBytes);
+        JsonElement facts = document.RootElement.GetProperty("extra")
+            .GetProperty("diagnostics")
+            .GetProperty("events")[0]
+            .GetProperty("facts");
+        Assert.Equal(255, facts.GetProperty("attempt").GetInt32());
+        Assert.Equal("other", facts.GetProperty("reason").GetString());
+        Assert.Equal("unknown", facts.GetProperty("session_status").GetString());
     }
 
     private static DiagnosticSystemInfo SafeSystem() => new(

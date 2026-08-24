@@ -53,7 +53,7 @@ internal static class FeedbackEventFactory
         DiagnosticSystemInfo system,
         IReadOnlyList<DiagnosticEntry> entries)
     {
-        string area = entries.Any(IsMerchantEvent) ? "merchant_trade" : "general";
+        string area = ReportArea(entries);
         List<DiagnosticEntryDto> eventDtos = entries
             .Select(entry => Entry(entry, createdAt))
             .ToList();
@@ -96,7 +96,8 @@ internal static class FeedbackEventFactory
             ageMs,
             Code(entry.Code),
             Control(entry.Control),
-            Normalize(entry.ControlState));
+            Normalize(entry.ControlState),
+            Normalize(entry.Facts));
     }
 
     private static DiagnosticControlState? Normalize(DiagnosticControlState? state)
@@ -117,6 +118,43 @@ internal static class FeedbackEventFactory
             HoveredControl = SafeNode(state.HoveredControl),
             FocusOwner = SafeNode(state.FocusOwner),
             ActiveScreen = SafeNode(state.ActiveScreen)
+        };
+    }
+
+    private static DiagnosticTradeFacts? Normalize(DiagnosticTradeFacts? facts)
+    {
+        if (facts is null)
+            return null;
+
+        return facts with
+        {
+            Location = facts.Location switch
+            {
+                "merchant" or "rest_site" or "unknown" => facts.Location,
+                _ => null
+            },
+            Attempt = facts.Attempt.HasValue ? Math.Clamp(facts.Attempt.Value, 0, 255) : null,
+            Count = facts.Count.HasValue ? Math.Clamp(facts.Count.Value, 0, 255) : null,
+            Revision = facts.Revision.HasValue
+                ? Math.Clamp(facts.Revision.Value, 0, 1_000_000)
+                : null,
+            Reason = facts.Reason switch
+            {
+                "initialized" or "duplicate" or "location_changed" or "cleanup" or
+                "accepted" or "not_available" or "no_active_location" or "invalid_location" or "not_run_player" or "invalid_gold" or
+                "wrong_location" or "no_available_peer" or "no_other_players" or
+                "host_event" or "not_connected" or "already_trading" or "used" or
+                "disconnected" or "declined" or "expired" or "invalid_session" or
+                "revision_mismatch" or "player_missing" or "validation_failed" or
+                "apply_failed" or "completed" or "canceled" => facts.Reason,
+                _ => facts.Reason is null ? null : "other"
+            },
+            SessionStatus = facts.SessionStatus switch
+            {
+                "pending" or "active" or "committing" or "committed" or "canceled" =>
+                    facts.SessionStatus,
+                _ => facts.SessionStatus is null ? null : "unknown"
+            }
         };
     }
 
@@ -145,12 +183,30 @@ internal static class FeedbackEventFactory
         return value;
     }
 
-    private static bool IsMerchantEvent(DiagnosticEntry entry) =>
-        entry.Code is DiagnosticEventCode.MerchantRoomReady or
-            DiagnosticEventCode.MerchantButtonAdded or
-            DiagnosticEventCode.TradeOverlayRequested or
-            DiagnosticEventCode.TradeOverlayShown ||
-        entry.Control == DiagnosticControlId.MerchantGoldTrade;
+    private static string ReportArea(IReadOnlyList<DiagnosticEntry> entries)
+    {
+        string? latestLocation = entries
+            .OrderBy(entry => entry.Sequence)
+            .Select(TradeLocation)
+            .LastOrDefault(location => location is not null);
+        return latestLocation switch
+        {
+            "merchant" => "merchant_trade",
+            "rest_site" => "rest_site_trade",
+            _ => "general"
+        };
+    }
+
+    private static string? TradeLocation(DiagnosticEntry entry)
+    {
+        if (entry.Facts?.Location is "merchant" or "rest_site")
+            return entry.Facts.Location;
+        if (entry.Code is DiagnosticEventCode.MerchantRoomReady or
+                DiagnosticEventCode.MerchantButtonAdded ||
+            entry.Control == DiagnosticControlId.MerchantGoldTrade)
+            return "merchant";
+        return null;
+    }
 
     private static string Code(DiagnosticEventCode value) => value switch
     {
@@ -163,6 +219,15 @@ internal static class FeedbackEventFactory
         DiagnosticEventCode.NativeInputReleased => "native_input.released",
         DiagnosticEventCode.TradeOverlayRequested => "trade_overlay.requested",
         DiagnosticEventCode.TradeOverlayShown => "trade_overlay.shown",
+        DiagnosticEventCode.TradeLocationStarted => "trade.location_started",
+        DiagnosticEventCode.TradeStateReset => "trade.state_reset",
+        DiagnosticEventCode.TradeAvailabilitySent => "trade.availability_sent",
+        DiagnosticEventCode.TradeAvailabilityHandled => "trade.availability_handled",
+        DiagnosticEventCode.TradeAvailabilityReceived => "trade.availability_received",
+        DiagnosticEventCode.TradeWaitingForPlayers => "trade.waiting_for_players",
+        DiagnosticEventCode.TradeInviteRequested => "trade.invite_requested",
+        DiagnosticEventCode.TradeInviteRejected => "trade.invite_rejected",
+        DiagnosticEventCode.TradeSessionChanged => "trade.session_changed",
         DiagnosticEventCode.FeedbackRequested => "feedback.requested",
         _ => "unknown"
     };
@@ -207,7 +272,8 @@ internal static class FeedbackEventFactory
         long AgeMs,
         string Code,
         string Control,
-        DiagnosticControlState? ControlState);
+        DiagnosticControlState? ControlState,
+        DiagnosticTradeFacts? Facts);
 
     private sealed record SdkDto(
         string Name,

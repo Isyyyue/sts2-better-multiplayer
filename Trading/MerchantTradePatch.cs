@@ -26,6 +26,7 @@ internal static class MerchantTradePatch
         if (playerCount <= 1)
             return;
 
+        __instance.TreeExiting += () => TradeCoordinator.EndLocation(TradeLocation.Merchant);
         DiagnosticRecorder.RecordMerchantRoom();
         TradeCoordinator.BeginLocation(TradeLocation.Merchant);
         Node uiParent = (Node?)NModalContainer.Instance ?? __instance;
@@ -35,7 +36,7 @@ internal static class MerchantTradePatch
         NButton input = CreateGoldTradeButton(
             () =>
             {
-                DiagnosticRecorder.RecordTradeOverlayRequested();
+                DiagnosticRecorder.RecordTradeOverlayRequested(TradeLocation.Merchant);
                 TradeOverlay.Show(__instance, TradeLocation.Merchant);
             },
             out Button button);

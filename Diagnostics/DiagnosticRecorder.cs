@@ -4,6 +4,7 @@ using Godot;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
+using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Diagnostics;
 
@@ -18,6 +19,15 @@ internal enum DiagnosticEventCode
     NativeInputReleased,
     TradeOverlayRequested,
     TradeOverlayShown,
+    TradeLocationStarted,
+    TradeStateReset,
+    TradeAvailabilitySent,
+    TradeAvailabilityHandled,
+    TradeAvailabilityReceived,
+    TradeWaitingForPlayers,
+    TradeInviteRequested,
+    TradeInviteRejected,
+    TradeSessionChanged,
     FeedbackRequested
 }
 
@@ -55,11 +65,12 @@ internal sealed record DiagnosticEntry(
     DateTimeOffset Timestamp,
     DiagnosticEventCode Code,
     DiagnosticControlId Control,
-    DiagnosticControlState? ControlState);
+    DiagnosticControlState? ControlState,
+    DiagnosticTradeFacts? Facts = null);
 
 internal static class DiagnosticRecorder
 {
-    internal const int Capacity = 48;
+    internal const int Capacity = 96;
     internal static readonly TimeSpan Retention = TimeSpan.FromDays(3);
 
     private static readonly object Gate = new();
@@ -67,13 +78,136 @@ internal static class DiagnosticRecorder
     private static long _sequence;
 
     internal static void RecordMerchantRoom() =>
-        Record(DiagnosticEventCode.MerchantRoomReady);
+        Record(DiagnosticEventCode.MerchantRoomReady, facts: Facts(TradeLocation.Merchant));
 
-    internal static void RecordTradeOverlayRequested() =>
-        Record(DiagnosticEventCode.TradeOverlayRequested);
+    internal static void RecordTradeOverlayRequested(
+        TradeLocation? location = TradeLocation.Merchant) =>
+        Record(DiagnosticEventCode.TradeOverlayRequested, facts: Facts(location));
 
-    internal static void RecordTradeOverlayShown() =>
-        Record(DiagnosticEventCode.TradeOverlayShown);
+    internal static void RecordTradeOverlayShown(
+        TradeLocation? location = TradeLocation.Merchant) =>
+        Record(DiagnosticEventCode.TradeOverlayShown, facts: Facts(location));
+
+    internal static void RecordTradeLocationStarted(
+        TradeLocation location,
+        bool duplicate,
+        int priorSessionCount = 0) =>
+        Record(
+            DiagnosticEventCode.TradeLocationStarted,
+            facts: Facts(
+                location,
+                count: priorSessionCount,
+                changed: !duplicate,
+                reason: duplicate ? "duplicate" : "initialized"));
+
+    internal static void RecordTradeStateReset(
+        TradeLocation? location,
+        string reason,
+        int clearedSessionCount = 0) =>
+        Record(
+            DiagnosticEventCode.TradeStateReset,
+            facts: Facts(
+                location,
+                count: clearedSessionCount,
+                changed: true,
+                reason: SafeReason(reason)));
+
+    internal static void RecordAvailabilitySent(
+        TradeLocation location,
+        bool available,
+        bool connected,
+        bool host,
+        int attempt,
+        bool? success = null) =>
+        Record(
+            DiagnosticEventCode.TradeAvailabilitySent,
+            facts: Facts(
+                location,
+                available,
+                connected,
+                host,
+                attempt: attempt,
+                success: success));
+
+    internal static void RecordAvailabilityHandled(
+        TradeLocation location,
+        bool available,
+        bool accepted,
+        bool changed,
+        string reason,
+        bool? connected = null,
+        bool? host = true) =>
+        Record(
+            DiagnosticEventCode.TradeAvailabilityHandled,
+            facts: Facts(
+                location,
+                available,
+                connected,
+                host,
+                changed: changed,
+                accepted: accepted,
+                reason: SafeReason(accepted ? "accepted" : reason)));
+
+    internal static void RecordAvailabilityReceived(
+        TradeLocation location,
+        bool available,
+        bool changed,
+        bool? connected = null) =>
+        Record(
+            DiagnosticEventCode.TradeAvailabilityReceived,
+            facts: Facts(
+                location,
+                available,
+                connected,
+                changed: changed,
+                accepted: true,
+                reason: "host_event"));
+
+    internal static void RecordWaitingForPlayers(TradeLocation location, bool hasPlayers) =>
+        Record(
+            DiagnosticEventCode.TradeWaitingForPlayers,
+            facts: Facts(
+                location,
+                available: false,
+                connected: CanReadNetworkConnection(),
+                host: CanReadHost(),
+                reason: hasPlayers ? "no_available_peer" : "no_other_players"));
+
+    internal static void RecordInviteRequested(
+        TradeLocation location,
+        bool? available = null,
+        bool? connected = null) =>
+        Record(
+            DiagnosticEventCode.TradeInviteRequested,
+            facts: Facts(location, available, connected, accepted: null));
+
+    internal static void RecordInviteRejected(TradeLocation location, string reason) =>
+        Record(
+            DiagnosticEventCode.TradeInviteRejected,
+            facts: Facts(
+                location,
+                accepted: false,
+                success: false,
+                reason: SafeReason(reason)));
+
+    internal static void RecordSessionChanged(
+        TradeLocation location,
+        string status,
+        bool changed = true,
+        int revision = 0,
+        bool? localConfirmed = null,
+        bool? remoteConfirmed = null,
+        bool? success = null) =>
+        Record(
+            DiagnosticEventCode.TradeSessionChanged,
+            facts: Facts(
+                location,
+                revision: revision,
+                changed: changed,
+                success: success,
+                localConfirmed: localConfirmed,
+                remoteConfirmed: remoteConfirmed,
+                sessionStatus: SafeSessionStatus(status)));
 
     internal static void RecordFeedbackRequested() =>
         Record(DiagnosticEventCode.FeedbackRequested, DiagnosticControlId.SendFeedback);
@@ -150,7 +284,8 @@ internal static class DiagnosticRecorder
     private static void Record(
         DiagnosticEventCode code,
         DiagnosticControlId control = DiagnosticControlId.None,
-        DiagnosticControlState? controlState = null)
+        DiagnosticControlState? controlState = null,
+        DiagnosticTradeFacts? facts = null)
     {
         lock (Gate)
         {
@@ -162,7 +297,90 @@ internal static class DiagnosticRecorder
                 DateTimeOffset.UtcNow,
                 code,
                 control,
-                controlState));
+                controlState,
+                facts));
+        }
+    }
+
+    private static DiagnosticTradeFacts Facts(
+        TradeLocation? location,
+        bool? available = null,
+        bool? connected = null,
+        bool? host = null,
+        int? attempt = null,
+        int? count = null,
+        int? revision = null,
+        bool? changed = null,
+        bool? accepted = null,
+        bool? success = null,
+        bool? localConfirmed = null,
+        bool? remoteConfirmed = null,
+        string? reason = null,
+        string? sessionStatus = null) =>
+        new(
+            Location: location.HasValue ? Location(location.Value) : null,
+            Available: available,
+            Connected: connected,
+            Host: host,
+            Attempt: attempt.HasValue ? Math.Clamp(attempt.Value, 0, 255) : null,
+            Count: count.HasValue ? Math.Clamp(count.Value, 0, 255) : null,
+            Revision: revision.HasValue ? Math.Clamp(revision.Value, 0, 1_000_000) : null,
+            Changed: changed,
+            Accepted: accepted,
+            Success: success,
+            LocalConfirmed: localConfirmed,
+            RemoteConfirmed: remoteConfirmed,
+            Reason: reason,
+            SessionStatus: sessionStatus);
+
+    private static string Location(TradeLocation location) => location switch
+    {
+        TradeLocation.Merchant => "merchant",
+        TradeLocation.RestSite => "rest_site",
+        _ => "unknown"
+    };
+
+    private static string SafeReason(string value) => value switch
+    {
+        "initialized" or "duplicate" or "location_changed" or "cleanup" or
+        "accepted" or "not_available" or "no_active_location" or "invalid_location" or "not_run_player" or "invalid_gold" or
+        "wrong_location" or "no_available_peer" or "no_other_players" or "host_event" or
+        "not_connected" or "already_trading" or "used" or "disconnected" or
+        "declined" or "expired" or "invalid_session" or "revision_mismatch" or
+        "player_missing" or "validation_failed" or "apply_failed" or "completed" or
+        "canceled" => value,
+        _ => "other"
+    };
+
+    private static string SafeSessionStatus(string value) => value switch
+    {
+        "pending" or "active" or "committing" or "committed" or "canceled" => value,
+        _ => "unknown"
+    };
+
+    private static bool CanReadNetworkConnection()
+    {
+        try
+        {
+            return MegaCrit.Sts2.Core.Runs.RunManager.Instance.IsInProgress &&
+                MegaCrit.Sts2.Core.Runs.RunManager.Instance.NetService.IsConnected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool CanReadHost()
+    {
+        try
+        {
+            return MegaCrit.Sts2.Core.Runs.RunManager.Instance.NetService.Type ==
+                MegaCrit.Sts2.Core.Multiplayer.Game.NetGameType.Host;
+        }
+        catch
+        {
+            return false;
         }
     }
 
