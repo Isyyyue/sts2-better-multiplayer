@@ -104,15 +104,14 @@ internal sealed class LobbyMenu
         _body.AddChild(choices);
 
         Button feedback = null!;
-        feedback = UiFactory.Button(
+        feedback = UiFactory.OfficialPaperButton(
             ModText.Get(TextKey.SendFeedback),
             () => TaskHelper.RunSafely(SendDiagnosticFeedback(feedback)),
             diagnosticId: "send_feedback");
         feedback.Name = "SendDiagnosticFeedbackButton";
         feedback.TooltipText = ModText.Get(TextKey.SendFeedbackTooltip);
-        feedback.CustomMinimumSize = new Vector2(210, 54);
         HBoxContainer feedbackRow = new() { Alignment = BoxContainer.AlignmentMode.End };
-        feedbackRow.AddChild(CreateTexturedAction(feedback));
+        feedbackRow.AddChild(feedback);
         _body.AddChild(feedbackRow);
     }
 
@@ -554,32 +553,6 @@ internal sealed class LobbyMenu
         margin.AddThemeConstantOverride("margin_top", 86);
         margin.AddThemeConstantOverride("margin_bottom", 86);
         margin.AddChild(form);
-        shell.AddChild(margin);
-        return shell;
-    }
-
-    private static Control CreateTexturedAction(Button action)
-    {
-        Control shell = new()
-        {
-            Name = "FeedbackStoneBackground",
-            CustomMinimumSize = new Vector2(360, 176)
-        };
-
-        Control background = UiFactory.CreateOfficialPaperBackground();
-        background.MouseFilter = Control.MouseFilterEnum.Ignore;
-        background.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        shell.AddChild(background);
-
-        MarginContainer margin = new();
-        margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        margin.AddThemeConstantOverride("margin_left", 66);
-        margin.AddThemeConstantOverride("margin_right", 66);
-        margin.AddThemeConstantOverride("margin_top", 54);
-        margin.AddThemeConstantOverride("margin_bottom", 54);
-        CenterContainer center = new();
-        center.AddChild(action);
-        margin.AddChild(center);
         shell.AddChild(margin);
         return shell;
     }

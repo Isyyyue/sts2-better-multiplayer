@@ -16,6 +16,7 @@ internal static class TradeCoordinator
     private static readonly Dictionary<ulong, TradeSessionSnapshot> Sessions = [];
     private static readonly Dictionary<ulong, ulong> SessionByPlayer = [];
     private static TradeLocation? _activeLocation;
+    private static ulong? _activeLocationOwner;
 
     internal static void SetAvailable(ulong playerId, bool available, TradeLocation location, int reportedGold)
     {
@@ -324,16 +325,25 @@ internal static class TradeCoordinator
         });
     }
 
-    internal static void BeginLocation(TradeLocation location)
+    internal static void BeginLocation(TradeLocation location) =>
+        BeginLocation(location, ownerId: null);
+
+    internal static void BeginLocation(TradeLocation location, ulong ownerId) =>
+        BeginLocation(location, (ulong?)ownerId);
+
+    private static void BeginLocation(TradeLocation location, ulong? ownerId)
     {
         if (_activeLocation == location)
         {
+            if (ownerId.HasValue)
+                _activeLocationOwner = ownerId.Value;
             DiagnosticRecorder.RecordTradeLocationStarted(location, duplicate: true);
             return;
         }
 
         TradeLocation? previous = _activeLocation;
         _activeLocation = location;
+        _activeLocationOwner = ownerId;
         DiagnosticRecorder.RecordTradeLocationStarted(location, duplicate: false);
         foreach (TradeSessionSnapshot session in Sessions.Values.ToList())
             EndSession(session, TradeSessionStatus.Canceled);
@@ -353,11 +363,27 @@ internal static class TradeCoordinator
         }
     }
 
-    internal static void EndLocation(TradeLocation location)
+    internal static void EndLocation(TradeLocation location) =>
+        EndLocation(location, ownerId: null);
+
+    internal static void EndLocation(TradeLocation location, ulong ownerId) =>
+        EndLocation(location, (ulong?)ownerId);
+
+    private static void EndLocation(TradeLocation location, ulong? ownerId)
     {
         if (_activeLocation != location)
             return;
 
+        if (ownerId.HasValue && _activeLocationOwner != ownerId.Value)
+        {
+            DiagnosticRecorder.RecordTradeStateReset(
+                location,
+                "superseded_owner_exit",
+                changed: false);
+            return;
+        }
+
+        int clearedSessionCount = Sessions.Count;
         foreach (TradeSessionSnapshot session in Sessions.Values.ToList())
             EndSession(session, TradeSessionStatus.Canceled);
         AvailablePlayers.Clear();
@@ -366,11 +392,16 @@ internal static class TradeCoordinator
         SessionByPlayer.Clear();
         TradeStateStore.Reset();
         _activeLocation = null;
+        _activeLocationOwner = null;
+        if (location == TradeLocation.RestSite)
+            AssistSmithCoordinator.Reset();
+        DiagnosticRecorder.RecordTradeStateReset(location, "cleanup", clearedSessionCount);
     }
 
     internal static void Reset()
     {
         _activeLocation = null;
+        _activeLocationOwner = null;
         AvailablePlayers.Clear();
         AvailableGold.Clear();
         Sessions.Clear();

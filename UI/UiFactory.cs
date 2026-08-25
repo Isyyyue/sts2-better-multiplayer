@@ -8,6 +8,8 @@ namespace BetterMultiplayer.UI;
 
 internal static class UiFactory
 {
+    private const string OfficialPaperButtonBackgroundName = "BetterMultiplayerOfficialPaper";
+
     internal static readonly Color Background = new("111416");
     internal static readonly Color Surface = new("202529");
     internal static readonly Color Border = new("485159");
@@ -307,6 +309,43 @@ internal static class UiFactory
         return button;
     }
 
+    internal static Button OfficialPaperButton(
+        string text,
+        Action onPressed,
+        string? diagnosticId = null)
+    {
+        Button button = new()
+        {
+            Text = text,
+            CustomMinimumSize = new Vector2(360, 176),
+            FocusMode = Control.FocusModeEnum.None,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        StyleBoxEmpty empty = new();
+        button.AddThemeStyleboxOverride("normal", empty);
+        button.AddThemeStyleboxOverride("hover", empty);
+        button.AddThemeStyleboxOverride("pressed", empty);
+        button.AddThemeStyleboxOverride("disabled", empty);
+        button.AddThemeStyleboxOverride("focus", empty);
+        button.AddThemeColorOverride("font_color", Colors.White);
+        button.AddThemeColorOverride("font_hover_color", Colors.White);
+        button.AddThemeColorOverride("font_pressed_color", Colors.White);
+        button.AddThemeColorOverride("font_disabled_color", new Color(0.72f, 0.72f, 0.72f));
+        button.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.78f));
+        button.AddThemeConstantOverride("outline_size", 4);
+        button.AddThemeFontSizeOverride("font_size", 24);
+
+        Control background = CreateOfficialPaperBackground();
+        background.Name = OfficialPaperButtonBackgroundName;
+        background.MouseFilter = Control.MouseFilterEnum.Ignore;
+        background.ShowBehindParent = true;
+        background.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        button.AddChild(background);
+
+        AttachNativeInput(button, onPressed, diagnosticId);
+        return button;
+    }
+
     /// <summary>
     /// Routes input through the game's NButton system while leaving the Godot Button
     /// in place as the visual skin. The game-wide input layer does not reliably
@@ -330,15 +369,36 @@ internal static class UiFactory
     {
         if (button.GetNodeOrNull<NButton>("BetterMultiplayerNativeInput") is { } input)
             input.SetEnabled(!button.Disabled);
+        SetOfficialPaperButtonState(
+            button,
+            button.Disabled ? NativeInputBinding.VisualState.Disabled : NativeInputBinding.VisualState.Normal);
+    }
+
+    private static void SetOfficialPaperButtonState(
+        Button button,
+        NativeInputBinding.VisualState state)
+    {
+        if (button.GetNodeOrNull<CanvasItem>(OfficialPaperButtonBackgroundName) is not { } background)
+            return;
+
+        float brightness = state switch
+        {
+            NativeInputBinding.VisualState.Hover => 1.08f,
+            NativeInputBinding.VisualState.Pressed => 0.86f,
+            NativeInputBinding.VisualState.Disabled => 0.62f,
+            _ => 1f
+        };
+        background.SelfModulate = new Color(brightness, brightness, brightness);
     }
 
     private sealed class NativeInputBinding
     {
-        private enum VisualState
+        internal enum VisualState
         {
             Normal,
             Hover,
-            Pressed
+            Pressed,
+            Disabled
         }
 
         private readonly Button _button;
@@ -346,6 +406,7 @@ internal static class UiFactory
         private readonly StyleBox? _normalStyle;
         private readonly StyleBox? _hoverStyle;
         private readonly StyleBox? _pressedStyle;
+        private readonly StyleBox? _disabledStyle;
 
         internal NButton Input { get; }
 
@@ -356,6 +417,7 @@ internal static class UiFactory
             _normalStyle = button.GetThemeStylebox("normal");
             _hoverStyle = button.GetThemeStylebox("hover");
             _pressedStyle = button.GetThemeStylebox("pressed");
+            _disabledStyle = button.GetThemeStylebox("disabled");
 
             Input = new NButton
             {
@@ -386,13 +448,13 @@ internal static class UiFactory
                 return;
             RecordInput("focused");
             Input.TooltipText = _button.TooltipText;
-            SetVisualState(_button.Disabled ? VisualState.Normal : VisualState.Hover);
+            SetVisualState(_button.Disabled ? VisualState.Disabled : VisualState.Hover);
         }
 
         private void OnUnfocused(NClickableControl _)
         {
             RecordInput("unfocused");
-            SetVisualState(VisualState.Normal);
+            SetVisualState(_button.Disabled ? VisualState.Disabled : VisualState.Normal);
         }
 
         private void OnMousePressed(InputEvent _)
@@ -428,10 +490,12 @@ internal static class UiFactory
             {
                 VisualState.Hover => _hoverStyle ?? _normalStyle,
                 VisualState.Pressed => _pressedStyle ?? _normalStyle,
+                VisualState.Disabled => _disabledStyle ?? _normalStyle,
                 _ => _normalStyle
             };
             if (style is not null)
                 _button.AddThemeStyleboxOverride("normal", style);
+            SetOfficialPaperButtonState(_button, state);
         }
     }
 

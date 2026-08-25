@@ -283,9 +283,12 @@ internal sealed class TradeOverlay
 
         string error = TradeStateStore.LastError;
         SetStatus(
-            error.Length > 0 ? error : ModText.Get(TextKey.WaitingForPlayers),
+            error.Length > 0 ? error : ModText.Get(PlayerListStatusKey(availableCount)),
             error.Length > 0);
     }
+
+    internal static TextKey PlayerListStatusKey(int availableCount) =>
+        availableCount > 0 ? TextKey.ReadyToTrade : TextKey.WaitingForPlayers;
 
     private void RenderPending(TradeSessionSnapshot session)
     {

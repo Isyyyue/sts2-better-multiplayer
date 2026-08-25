@@ -8,12 +8,38 @@ namespace BetterMultiplayer.Trading;
 
 internal static class AssistSmithCoordinator
 {
+    private readonly record struct PendingRequest(
+        bool Canceled,
+        ulong TargetId,
+        int CardIndex,
+        string CardId,
+        int UpgradeLevel);
+
     private static readonly HashSet<ulong> ActivePlayers = [];
+    private static readonly Dictionary<ulong, PendingRequest> PendingRequests = [];
 
     internal static void Register(ulong playerId)
     {
         if (TradeNetwork.IsHost)
-            ActivePlayers.Add(playerId);
+            Register(playerId, Broadcast);
+    }
+
+    internal static void Register(
+        ulong playerId,
+        Action<ulong, AssistSmithResult> broadcast)
+    {
+        ActivePlayers.Add(playerId);
+        if (PendingRequests.Remove(playerId, out PendingRequest pending))
+        {
+            Resolve(
+                playerId,
+                pending.Canceled,
+                pending.TargetId,
+                pending.CardIndex,
+                pending.CardId,
+                pending.UpgradeLevel,
+                broadcast);
+        }
     }
 
     internal static void Resolve(
@@ -24,8 +50,35 @@ internal static class AssistSmithCoordinator
         string cardId,
         int upgradeLevel)
     {
+        Resolve(
+            senderId,
+            canceled,
+            targetId,
+            cardIndex,
+            cardId,
+            upgradeLevel,
+            Broadcast);
+    }
+
+    internal static void Resolve(
+        ulong senderId,
+        bool canceled,
+        ulong targetId,
+        int cardIndex,
+        string cardId,
+        int upgradeLevel,
+        Action<ulong, AssistSmithResult> broadcast)
+    {
         if (!ActivePlayers.Remove(senderId))
+        {
+            PendingRequests[senderId] = new PendingRequest(
+                canceled,
+                targetId,
+                cardIndex,
+                cardId,
+                upgradeLevel);
             return;
+        }
 
         AssistSmithResult result;
         if (canceled)
@@ -51,24 +104,35 @@ internal static class AssistSmithCoordinator
                 result = new AssistSmithResult(true, targetId, cardIndex, cardId, upgradeLevel, string.Empty);
         }
 
-        Broadcast(senderId, result);
+        broadcast(senderId, result);
     }
 
     internal static void PlayerDisconnected(ulong playerId)
     {
-        if (TradeNetwork.IsHost && ActivePlayers.Remove(playerId))
-            Broadcast(playerId, Failure(ModText.Token(TextKey.AssistSmithPlayerDisconnected)));
+        if (TradeNetwork.IsHost)
+            PlayerDisconnected(playerId, Broadcast);
+    }
+
+    internal static void PlayerDisconnected(
+        ulong playerId,
+        Action<ulong, AssistSmithResult> broadcast)
+    {
+        PendingRequests.Remove(playerId);
+        if (ActivePlayers.Remove(playerId))
+            broadcast(playerId, Failure(ModText.Token(TextKey.AssistSmithPlayerDisconnected)));
     }
 
     internal static void BeginRestSite()
     {
         ActivePlayers.Clear();
+        PendingRequests.Clear();
         AssistSmithFlow.BeginRestSite();
     }
 
     internal static void Reset()
     {
         ActivePlayers.Clear();
+        PendingRequests.Clear();
         AssistSmithFlow.Reset();
     }
 

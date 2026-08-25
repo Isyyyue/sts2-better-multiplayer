@@ -140,7 +140,7 @@ internal static class FeedbackEventFactory
                 : null,
             Reason = facts.Reason switch
             {
-                "initialized" or "duplicate" or "location_changed" or "cleanup" or
+                "initialized" or "duplicate" or "location_changed" or "cleanup" or "superseded_owner_exit" or
                 "accepted" or "not_available" or "no_active_location" or "invalid_location" or "not_run_player" or "invalid_gold" or
                 "wrong_location" or "no_available_peer" or "no_other_players" or
                 "host_event" or "not_connected" or "already_trading" or "used" or

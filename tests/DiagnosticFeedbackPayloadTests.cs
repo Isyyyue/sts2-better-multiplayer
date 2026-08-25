@@ -1,9 +1,11 @@
 using System.Text;
 using System.Text.Json;
 using BetterMultiplayer.Diagnostics;
+using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Tests;
 
+[Collection("TradeState")]
 public sealed class DiagnosticFeedbackPayloadTests : IDisposable
 {
     public void Dispose() => DiagnosticRecorder.ResetForTests();
@@ -37,6 +39,42 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
         Assert.Equal(TimeSpan.FromDays(3), DiagnosticRecorder.Retention);
         Assert.Single(atBoundary);
         Assert.Empty(afterBoundary);
+    }
+
+    [Fact]
+    public void RepeatedAvailabilityDiagnosticsPreserveLifecycleEvidence()
+    {
+        DiagnosticRecorder.ResetForTests();
+        DiagnosticRecorder.RecordTradeLocationStarted(TradeLocation.Merchant, duplicate: false);
+
+        for (int attempt = 1; attempt <= DiagnosticRecorder.Capacity * 3; attempt++)
+        {
+            DiagnosticRecorder.RecordAvailabilitySent(
+                TradeLocation.Merchant,
+                available: true,
+                connected: true,
+                host: false,
+                attempt);
+            DiagnosticRecorder.RecordAvailabilityHandled(
+                TradeLocation.Merchant,
+                available: true,
+                accepted: false,
+                changed: false,
+                reason: "no_active_location");
+            DiagnosticRecorder.RecordAvailabilityReceived(
+                TradeLocation.Merchant,
+                available: true,
+                changed: false);
+        }
+
+        IReadOnlyList<DiagnosticEntry> snapshot = DiagnosticRecorder.Snapshot();
+
+        Assert.Contains(snapshot, entry => entry.Code == DiagnosticEventCode.TradeLocationStarted);
+        Assert.Contains(
+            snapshot,
+            entry => entry.Code == DiagnosticEventCode.TradeAvailabilityHandled &&
+                entry.Facts?.Reason == "no_active_location");
+        Assert.True(snapshot.Count < DiagnosticRecorder.Capacity);
     }
 
     [Fact]

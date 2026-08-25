@@ -16,22 +16,24 @@ namespace BetterMultiplayer.Trading;
 [HarmonyPatch(typeof(NMerchantRoom), nameof(NMerchantRoom._Ready))]
 internal static class MerchantTradePatch
 {
+    private static ulong? _buttonOwnerId;
+    private static Action? _buttonCleanup;
+
     [HarmonyPostfix]
     private static void Postfix(NMerchantRoom __instance)
     {
-        int playerCount = RunManager.Instance.State?.Players.Count ?? 0;
         NetGameType netType = RunManager.Instance.NetService.Type;
-        BetterMultiplayerMod.Logger.Info(
-            $"Initializing merchant gold trade button: players={playerCount}, net={netType}");
-        if (playerCount <= 1)
+        ulong ownerId = __instance.GetInstanceId();
+        if (!TryBeginLifecycle(netType, ownerId))
             return;
 
-        __instance.TreeExiting += () => TradeCoordinator.EndLocation(TradeLocation.Merchant);
+        int playerCount = RunManager.Instance.State?.Players.Count ?? 0;
+        BetterMultiplayerMod.Logger.Info(
+            $"Initializing merchant gold trade button: players={playerCount}, net={netType}");
+        __instance.TreeExiting += () =>
+            TradeCoordinator.EndLocation(TradeLocation.Merchant, ownerId);
         DiagnosticRecorder.RecordMerchantRoom();
-        TradeCoordinator.BeginLocation(TradeLocation.Merchant);
         Node uiParent = (Node?)NModalContainer.Instance ?? __instance;
-        if (uiParent.GetNodeOrNull<Control>("BetterMultiplayerGoldTrade") is not null)
-            return;
 
         NButton input = CreateGoldTradeButton(
             () =>
@@ -53,7 +55,7 @@ internal static class MerchantTradePatch
 
         Action updateText = () =>
         {
-            if (!GodotObject.IsInstanceValid(button) || !GodotObject.IsInstanceValid(input))
+            if (!CanUse(button) || !CanUse(input))
                 return;
             string text = ModText.Get(TextKey.GoldTrade);
             string tooltip = ModText.Get(TextKey.GoldTradeTooltip);
@@ -63,34 +65,110 @@ internal static class MerchantTradePatch
         };
         updateText();
         ModText.LanguageChanged += updateText;
-        uiParent.AddChild(input);
-        Callable.From(() =>
-        {
-            if (!GodotObject.IsInstanceValid(button) || !GodotObject.IsInstanceValid(input))
-                return;
-            DiagnosticRecorder.RecordMerchantButtonAdded(button, input);
-        }).CallDeferred();
 
         NMapScreen? map = NMapScreen.Instance;
-        Callable hide = Callable.From(() => input.Visible = false);
-        Callable show = Callable.From(() => input.Visible = true);
+        Callable hide = Callable.From(() =>
+        {
+            if (CanUse(input))
+                input.Visible = false;
+        });
+        Callable show = Callable.From(() =>
+        {
+            if (CanUse(input))
+                input.Visible = true;
+        });
         map?.Connect(NMapScreen.SignalName.Opened, hide);
         map?.Connect(NMapScreen.SignalName.Closed, show);
-        __instance.TreeExiting += () =>
+
+        MerchantButtonCleanupState cleanupState = new();
+        Action cleanup = () =>
         {
+            if (!cleanupState.TryBeginCleanup())
+                return;
             ModText.LanguageChanged -= updateText;
-            if (map is not null && GodotObject.IsInstanceValid(map))
+            if (map is not null && CanUse(map))
             {
                 if (map.IsConnected(NMapScreen.SignalName.Opened, hide))
                     map.Disconnect(NMapScreen.SignalName.Opened, hide);
                 if (map.IsConnected(NMapScreen.SignalName.Closed, show))
                     map.Disconnect(NMapScreen.SignalName.Closed, show);
             }
-            if (GodotObject.IsInstanceValid(input))
-                input.QueueFree();
+            QueueFreeSafely(input);
+        };
+
+        bool ownerChanged = ClaimButtonOwner(ownerId, cleanup);
+        if (!ownerChanged)
+            return;
+        if (uiParent.GetNodeOrNull<Control>("BetterMultiplayerGoldTrade") is { } existing)
+            QueueFreeSafely(existing);
+
+        uiParent.AddChild(input);
+        Callable.From(() =>
+        {
+            if (!CanUse(button) || !CanUse(input))
+                return;
+            DiagnosticRecorder.RecordMerchantButtonAdded(button, input);
+        }).CallDeferred();
+        __instance.TreeExiting += () =>
+        {
+            ReleaseButtonOwner(ownerId);
+            cleanup();
         };
         BetterMultiplayerMod.Logger.Info(
             $"Merchant gold trade button added: parent={uiParent.Name}, visible={input.Visible}");
+    }
+
+    internal static bool TryBeginLifecycle(NetGameType netType, ulong ownerId)
+    {
+        if (!ShouldInitialize(netType))
+            return false;
+
+        TradeCoordinator.BeginLocation(TradeLocation.Merchant, ownerId);
+        return true;
+    }
+
+    private static bool ShouldInitialize(NetGameType netType) =>
+        netType is NetGameType.Host or NetGameType.Client;
+
+    internal static bool ClaimButtonOwner(ulong ownerId, Action cleanup)
+    {
+        bool changed = _buttonOwnerId != ownerId;
+        if (!changed)
+        {
+            cleanup();
+            return false;
+        }
+
+        Action? previousCleanup = _buttonCleanup;
+        _buttonOwnerId = ownerId;
+        _buttonCleanup = cleanup;
+        previousCleanup?.Invoke();
+        return true;
+    }
+
+    internal static bool ReleaseButtonOwner(ulong ownerId)
+    {
+        if (_buttonOwnerId != ownerId)
+            return false;
+        _buttonOwnerId = null;
+        _buttonCleanup = null;
+        return true;
+    }
+
+    private static bool CanUse(Node? node) =>
+        node is not null &&
+        GodotObject.IsInstanceValid(node) &&
+        !node.IsQueuedForDeletion();
+
+    private static void QueueFreeSafely(Node? node)
+    {
+        if (node is null || !CanUse(node))
+            return;
+
+        Node? parent = node.GetParent();
+        if (parent is not null && CanUse(parent))
+            parent.RemoveChild(node);
+        node.QueueFree();
     }
 
     private static NButton CreateGoldTradeButton(Action onReleased, out Button visual)
@@ -171,5 +249,18 @@ internal static class MerchantTradePatch
 
         visual = button;
         return input;
+    }
+}
+
+internal sealed class MerchantButtonCleanupState
+{
+    private bool _cleanupStarted;
+
+    internal bool TryBeginCleanup()
+    {
+        if (_cleanupStarted)
+            return false;
+        _cleanupStarted = true;
+        return true;
     }
 }

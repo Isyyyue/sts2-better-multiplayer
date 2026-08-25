@@ -75,7 +75,15 @@ internal static class DiagnosticRecorder
 
     private static readonly object Gate = new();
     private static readonly Queue<DiagnosticEntry> Entries = new(Capacity);
+    private static readonly Dictionary<AvailabilityHandledKey, int> AvailabilityHandledOccurrences = [];
     private static long _sequence;
+
+    private readonly record struct AvailabilityHandledKey(
+        TradeLocation Location,
+        bool Available,
+        bool Accepted,
+        bool Changed,
+        string Reason);
 
     internal static void RecordMerchantRoom() =>
         Record(DiagnosticEventCode.MerchantRoomReady, facts: Facts(TradeLocation.Merchant));
@@ -91,7 +99,10 @@ internal static class DiagnosticRecorder
     internal static void RecordTradeLocationStarted(
         TradeLocation location,
         bool duplicate,
-        int priorSessionCount = 0) =>
+        int priorSessionCount = 0)
+    {
+        if (!duplicate)
+            ResetAvailabilitySampling();
         Record(
             DiagnosticEventCode.TradeLocationStarted,
             facts: Facts(
@@ -99,18 +110,24 @@ internal static class DiagnosticRecorder
                 count: priorSessionCount,
                 changed: !duplicate,
                 reason: duplicate ? "duplicate" : "initialized"));
+    }
 
     internal static void RecordTradeStateReset(
         TradeLocation? location,
         string reason,
-        int clearedSessionCount = 0) =>
+        int clearedSessionCount = 0,
+        bool changed = true)
+    {
+        if (changed)
+            ResetAvailabilitySampling();
         Record(
             DiagnosticEventCode.TradeStateReset,
             facts: Facts(
                 location,
                 count: clearedSessionCount,
-                changed: true,
+                changed: changed,
                 reason: SafeReason(reason)));
+    }
 
     internal static void RecordAvailabilitySent(
         TradeLocation location,
@@ -118,7 +135,10 @@ internal static class DiagnosticRecorder
         bool connected,
         bool host,
         int attempt,
-        bool? success = null) =>
+        bool? success = null)
+    {
+        if (available && !ShouldRecordAttempt(attempt))
+            return;
         Record(
             DiagnosticEventCode.TradeAvailabilitySent,
             facts: Facts(
@@ -128,6 +148,7 @@ internal static class DiagnosticRecorder
                 host,
                 attempt: attempt,
                 success: success));
+    }
 
     internal static void RecordAvailabilityHandled(
         TradeLocation location,
@@ -136,7 +157,16 @@ internal static class DiagnosticRecorder
         bool changed,
         string reason,
         bool? connected = null,
-        bool? host = true) =>
+        bool? host = true)
+    {
+        string safeReason = SafeReason(accepted ? "accepted" : reason);
+        if (!changed && !ShouldRecordAvailabilityHandled(new AvailabilityHandledKey(
+                location,
+                available,
+                accepted,
+                changed,
+                safeReason)))
+            return;
         Record(
             DiagnosticEventCode.TradeAvailabilityHandled,
             facts: Facts(
@@ -146,13 +176,17 @@ internal static class DiagnosticRecorder
                 host,
                 changed: changed,
                 accepted: accepted,
-                reason: SafeReason(accepted ? "accepted" : reason)));
+                reason: safeReason));
+    }
 
     internal static void RecordAvailabilityReceived(
         TradeLocation location,
         bool available,
         bool changed,
-        bool? connected = null) =>
+        bool? connected = null)
+    {
+        if (!changed)
+            return;
         Record(
             DiagnosticEventCode.TradeAvailabilityReceived,
             facts: Facts(
@@ -162,6 +196,7 @@ internal static class DiagnosticRecorder
                 changed: changed,
                 accepted: true,
                 reason: "host_event"));
+    }
 
     internal static void RecordWaitingForPlayers(TradeLocation location, bool hasPlayers) =>
         Record(
@@ -277,8 +312,31 @@ internal static class DiagnosticRecorder
         lock (Gate)
         {
             Entries.Clear();
+            AvailabilityHandledOccurrences.Clear();
             _sequence = 0;
         }
+    }
+
+    private static bool ShouldRecordAttempt(int attempt) =>
+        attempt <= 3 || IsPowerOfTwo(attempt);
+
+    private static bool ShouldRecordAvailabilityHandled(AvailabilityHandledKey key)
+    {
+        lock (Gate)
+        {
+            int occurrence = AvailabilityHandledOccurrences.GetValueOrDefault(key) + 1;
+            AvailabilityHandledOccurrences[key] = occurrence;
+            return occurrence <= 3 || IsPowerOfTwo(occurrence);
+        }
+    }
+
+    private static bool IsPowerOfTwo(int value) =>
+        value > 0 && (value & (value - 1)) == 0;
+
+    private static void ResetAvailabilitySampling()
+    {
+        lock (Gate)
+            AvailabilityHandledOccurrences.Clear();
     }
 
     private static void Record(
@@ -342,7 +400,7 @@ internal static class DiagnosticRecorder
 
     private static string SafeReason(string value) => value switch
     {
-        "initialized" or "duplicate" or "location_changed" or "cleanup" or
+        "initialized" or "duplicate" or "location_changed" or "cleanup" or "superseded_owner_exit" or
         "accepted" or "not_available" or "no_active_location" or "invalid_location" or "not_run_player" or "invalid_gold" or
         "wrong_location" or "no_available_peer" or "no_other_players" or "host_event" or
         "not_connected" or "already_trading" or "used" or "disconnected" or
