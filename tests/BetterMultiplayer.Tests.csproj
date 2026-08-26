@@ -41,5 +41,13 @@
       <HintPath>$(STS2DataPath)/0Harmony.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="Sentry" Condition="Exists('$(STS2DataPath)/Sentry.dll')">
+      <HintPath>$(STS2DataPath)/Sentry.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Sentry.Godot" Condition="Exists('$(STS2DataPath)/Sentry.Godot.dll')">
+      <HintPath>$(STS2DataPath)/Sentry.Godot.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

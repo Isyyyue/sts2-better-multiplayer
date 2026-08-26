@@ -61,7 +61,7 @@ internal static class TradeStateStore
 
     internal static void MarkHostCommit(TradeSessionSnapshot snapshot)
     {
-        DiagnosticRecorder.RecordSessionChanged(snapshot.Location, "committed");
+        DiagnosticRecorder.RecordSessionSnapshot(snapshot, "commit_applied");
         if (snapshot.Location == TradeLocation.RestSite)
         {
             TradeRestSiteFlow.Complete(snapshot.PlayerA, success: true);
@@ -101,9 +101,9 @@ internal static class TradeStateStore
             CurrentSession = local;
             if (!success)
                 LastError = ModText.Token(TextKey.TradeSyncFailed);
-            DiagnosticRecorder.RecordSessionChanged(
-                snapshot.Location,
-                success ? "committed" : "canceled");
+            DiagnosticRecorder.RecordSessionSnapshot(
+                local,
+                success ? "commit_applied" : "commit_failed");
         }
         Changed?.Invoke();
     }

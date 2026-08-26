@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
@@ -8,6 +9,17 @@ using Godot;
 using MegaCrit.Sts2.Core.Runs;
 
 namespace BetterMultiplayer.Diagnostics;
+
+internal sealed record DiagnosticModInfo(string Id, string Version)
+{
+    internal DiagnosticModInfo? Normalize()
+    {
+        string id = FeedbackValueSanitizer.Identifier(Id);
+        if (id == "unavailable")
+            return null;
+        return new DiagnosticModInfo(id, DiagnosticSystemInfo.SafeVersion(Version));
+    }
+}
 
 internal sealed record DiagnosticSystemInfo(
     string ModVersion,
@@ -22,8 +34,12 @@ internal sealed record DiagnosticSystemInfo(
     int WindowWidth,
     int WindowHeight,
     int ViewportWidth,
-    int ViewportHeight)
+    int ViewportHeight,
+    IReadOnlyList<DiagnosticModInfo>? LoadedMods = null,
+    bool LoadedModsTruncated = false)
 {
+    internal const int MaxLoadedMods = 64;
+
     private static readonly Regex VersionPattern = new(
         @"^[vV]?\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z][0-9A-Za-z._-]{0,63})?$",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
@@ -38,6 +54,7 @@ internal sealed record DiagnosticSystemInfo(
         Assembly gameAssembly = typeof(RunManager).Assembly;
         Vector2I windowSize = SafeWindowSize();
         Vector2 viewportSize = SafeViewportSize(source);
+        LoadedModSnapshot loadedMods = CaptureLoadedMods();
 
         return new DiagnosticSystemInfo(
             SafeVersion(BetterMultiplayerMod.Version),
@@ -52,7 +69,9 @@ internal sealed record DiagnosticSystemInfo(
             Math.Clamp(windowSize.X, 0, 32768),
             Math.Clamp(windowSize.Y, 0, 32768),
             Math.Clamp((int)MathF.Round(viewportSize.X), 0, 32768),
-            Math.Clamp((int)MathF.Round(viewportSize.Y), 0, 32768));
+            Math.Clamp((int)MathF.Round(viewportSize.Y), 0, 32768),
+            loadedMods.Mods,
+            loadedMods.Truncated);
     }
 
     internal static string SafeVersion(string? value)
@@ -63,22 +82,106 @@ internal sealed record DiagnosticSystemInfo(
         return candidate;
     }
 
-    internal DiagnosticSystemInfo Normalize() => new(
-        SafeVersion(ModVersion),
-        SafeVersion(ModBuild),
-        SafeHash(ModSha256),
-        SafeVersion(GameBuild),
-        SafeVersion(BaseLibVersion),
-        SafeVersion(DotNetVersion),
-        OperatingSystem == "other" || WindowsPattern.IsMatch(OperatingSystem)
-            ? OperatingSystem
-            : "unknown",
-        SafeArchitecture(ProcessArchitecture),
-        SafeLanguage(Language),
-        Math.Clamp(WindowWidth, 0, 32768),
-        Math.Clamp(WindowHeight, 0, 32768),
-        Math.Clamp(ViewportWidth, 0, 32768),
-        Math.Clamp(ViewportHeight, 0, 32768));
+    internal DiagnosticSystemInfo Normalize()
+    {
+        DiagnosticModInfo[] loadedMods = (LoadedMods ?? [])
+            .Select(mod => mod.Normalize())
+            .Where(mod => mod is not null)
+            .Cast<DiagnosticModInfo>()
+            .GroupBy(mod => mod.Id, StringComparer.Ordinal)
+            .Select(group => group.Last())
+            .OrderBy(mod => mod.Id, StringComparer.Ordinal)
+            .Take(MaxLoadedMods)
+            .ToArray();
+        return new DiagnosticSystemInfo(
+            SafeVersion(ModVersion),
+            SafeVersion(ModBuild),
+            SafeHash(ModSha256),
+            SafeVersion(GameBuild),
+            SafeVersion(BaseLibVersion),
+            SafeVersion(DotNetVersion),
+            OperatingSystem == "other" || WindowsPattern.IsMatch(OperatingSystem)
+                ? OperatingSystem
+                : "unknown",
+            SafeArchitecture(ProcessArchitecture),
+            SafeLanguage(Language),
+            Math.Clamp(WindowWidth, 0, 32768),
+            Math.Clamp(WindowHeight, 0, 32768),
+            Math.Clamp(ViewportWidth, 0, 32768),
+            Math.Clamp(ViewportHeight, 0, 32768),
+            loadedMods,
+            LoadedModsTruncated || (LoadedMods?.Count ?? 0) > MaxLoadedMods);
+    }
+
+    private static LoadedModSnapshot CaptureLoadedMods()
+    {
+        try
+        {
+            const BindingFlags staticFlags = BindingFlags.Static |
+                BindingFlags.Public | BindingFlags.NonPublic;
+            Type? manager = typeof(RunManager).Assembly.GetType(
+                "MegaCrit.Sts2.Core.Modding.ModManager");
+            object? value = manager?.GetProperty("Mods", staticFlags)?.GetValue(null) ??
+                manager?.GetMethods(staticFlags)
+                    .FirstOrDefault(method =>
+                        method.Name == "GetLoadedMods" &&
+                        method.GetParameters().Length == 0)
+                    ?.Invoke(null, null) ??
+                manager?.GetField("_mods", staticFlags)?.GetValue(null);
+            if (value is not IEnumerable mods)
+                return LoadedModSnapshot.Empty;
+
+            List<DiagnosticModInfo> loaded = [];
+            foreach (object? mod in mods)
+            {
+                if (mod is null || !string.Equals(
+                        ReadMember(mod, "state")?.ToString(),
+                        "Loaded",
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                object? manifest = ReadMember(mod, "manifest");
+                string id = ReadMember(manifest, "id")?.ToString() ?? string.Empty;
+                string version = ReadMember(mod, "version")?.ToString() ??
+                    ReadMember(manifest, "version")?.ToString() ?? string.Empty;
+                DiagnosticModInfo? normalized = new DiagnosticModInfo(id, version).Normalize();
+                if (normalized is not null)
+                    loaded.Add(normalized);
+            }
+
+            DiagnosticModInfo[] unique = loaded
+                .GroupBy(mod => mod.Id, StringComparer.Ordinal)
+                .Select(group => group.Last())
+                .OrderBy(mod => mod.Id, StringComparer.Ordinal)
+                .ToArray();
+            return new LoadedModSnapshot(
+                unique.Take(MaxLoadedMods).ToArray(),
+                unique.Length > MaxLoadedMods);
+        }
+        catch
+        {
+            return LoadedModSnapshot.Empty;
+        }
+    }
+
+    private static object? ReadMember(object? target, string name)
+    {
+        if (target is null)
+            return null;
+        try
+        {
+            const BindingFlags flags = BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.NonPublic;
+            return target.GetType().GetProperty(name, flags)?.GetValue(target) ??
+                target.GetType().GetField(name, flags)?.GetValue(target);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private static string ProductVersion(Assembly assembly)
     {
@@ -193,4 +296,11 @@ internal sealed record DiagnosticSystemInfo(
         "X64" or "X86" or "Arm" or "Arm64" or "Wasm" or "S390x" or "LoongArch64" => value,
         _ => "unknown"
     };
+
+    private sealed record LoadedModSnapshot(
+        IReadOnlyList<DiagnosticModInfo> Mods,
+        bool Truncated)
+    {
+        internal static LoadedModSnapshot Empty { get; } = new([], false);
+    }
 }

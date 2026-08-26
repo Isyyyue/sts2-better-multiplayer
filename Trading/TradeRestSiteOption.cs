@@ -1,3 +1,4 @@
+using System.Reflection;
 using BaseLib.Abstracts;
 using Godot;
 using HarmonyLib;
@@ -8,6 +9,8 @@ using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Nodes.RestSite;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
+using MegaCrit.Sts2.Core.Rooms;
+using MegaCrit.Sts2.Core.Runs;
 using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
@@ -104,9 +107,18 @@ internal static class TradeRestSiteBeginPatch
     private static void Prefix() => TradeCoordinator.BeginLocation(TradeLocation.RestSite);
 }
 
-[HarmonyPatch(typeof(RestSiteSynchronizer), nameof(RestSiteSynchronizer.BeforeLocalRestSiteExited))]
+[HarmonyPatch]
 internal static class TradeRestSiteEndPatch
 {
-    [HarmonyPostfix]
-    private static void Postfix() => TradeCoordinator.EndLocation(TradeLocation.RestSite);
+    private static MethodBase TargetMethod() =>
+        typeof(RestSiteRoom).GetMethod(
+            nameof(RestSiteRoom.Exit),
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            [typeof(IRunState)],
+            modifiers: null) ??
+        throw new MissingMethodException(typeof(RestSiteRoom).FullName, nameof(RestSiteRoom.Exit));
+
+    [HarmonyPrefix]
+    private static void Prefix() => TradeCoordinator.EndLocation(TradeLocation.RestSite);
 }

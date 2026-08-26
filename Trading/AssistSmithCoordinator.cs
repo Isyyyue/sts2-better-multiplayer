@@ -3,6 +3,7 @@ using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Runs;
 using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.Localization;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
 
@@ -29,8 +30,26 @@ internal static class AssistSmithCoordinator
         Action<ulong, AssistSmithResult> broadcast)
     {
         ActivePlayers.Add(playerId);
+        DiagnosticRecorder.RecordAssistSmith(
+            "registered",
+            playerId,
+            0,
+            -1,
+            string.Empty,
+            0,
+            success: true,
+            "accepted");
         if (PendingRequests.Remove(playerId, out PendingRequest pending))
         {
+            DiagnosticRecorder.RecordAssistSmith(
+                "request_replayed",
+                playerId,
+                pending.TargetId,
+                pending.CardIndex,
+                pending.CardId,
+                pending.UpgradeLevel,
+                success: true,
+                "accepted");
             Resolve(
                 playerId,
                 pending.Canceled,
@@ -77,20 +96,44 @@ internal static class AssistSmithCoordinator
                 cardIndex,
                 cardId,
                 upgradeLevel);
+            DiagnosticRecorder.RecordAssistSmith(
+                "request_pending",
+                senderId,
+                targetId,
+                cardIndex,
+                cardId,
+                upgradeLevel,
+                success: false,
+                "not_available");
             return;
         }
 
+        DiagnosticRecorder.RecordAssistSmith(
+            "request_received",
+            senderId,
+            targetId,
+            cardIndex,
+            cardId,
+            upgradeLevel,
+            success: !canceled,
+            canceled ? "canceled" : "accepted");
+
         AssistSmithResult result;
+        string reason;
         if (canceled)
         {
             result = Failure(string.Empty);
+            reason = "canceled";
         }
         else
         {
             Player? owner = RunManager.Instance.State?.GetPlayer(senderId);
             Player? target = RunManager.Instance.State?.GetPlayer(targetId);
             if (owner is null || target is null)
+            {
                 result = Failure(ModText.Token(TextKey.AssistSmithPlayerLeft));
+                reason = "player_missing";
+            }
             else if (!AssistSmithSelection.TryResolve(
                          owner,
                          target,
@@ -99,11 +142,26 @@ internal static class AssistSmithCoordinator
                          upgradeLevel,
                          out _,
                          out string error))
+            {
                 result = Failure(error);
+                reason = "validation_failed";
+            }
             else
+            {
                 result = new AssistSmithResult(true, targetId, cardIndex, cardId, upgradeLevel, string.Empty);
+                reason = "completed";
+            }
         }
 
+        DiagnosticRecorder.RecordAssistSmith(
+            "result_broadcast",
+            senderId,
+            result.TargetId == 0 ? targetId : result.TargetId,
+            result.CardIndex < 0 ? cardIndex : result.CardIndex,
+            result.CardId.Length == 0 ? cardId : result.CardId,
+            result.UpgradeLevel,
+            result.Success,
+            reason);
         broadcast(senderId, result);
     }
 
@@ -117,8 +175,21 @@ internal static class AssistSmithCoordinator
         ulong playerId,
         Action<ulong, AssistSmithResult> broadcast)
     {
-        PendingRequests.Remove(playerId);
-        if (ActivePlayers.Remove(playerId))
+        bool pending = PendingRequests.Remove(playerId);
+        bool active = ActivePlayers.Remove(playerId);
+        if (pending || active)
+        {
+            DiagnosticRecorder.RecordAssistSmith(
+                "disconnected",
+                playerId,
+                0,
+                -1,
+                string.Empty,
+                0,
+                success: false,
+                "disconnected");
+        }
+        if (active)
             broadcast(playerId, Failure(ModText.Token(TextKey.AssistSmithPlayerDisconnected)));
     }
 

@@ -17,6 +17,7 @@
 ## 代码地图
 
 - `Lobby/`：Steam 公共大厅、房间名、Steam Lobby 补丁和房间生命周期。
+- `Diagnostics/`：玩家主动提交的固定结构诊断、多人关联信息、交易/锻牌时序和 Sentry 传输。
 - `Security/`：PBKDF2/HMAC 密码证明。
 - `Trading/`：Mod 消息与 Steam 中继、房主权威交易状态机、篝火/商店补丁和交易界面。
 - `UI/`：Godot 控件创建工具。
@@ -40,43 +41,64 @@
 
 核验发现旧 Workshop DLL 的 `ProductVersion` 指向提交 `8e6c24a`，没有包含 GitHub `main` 上 `c1083cb` 的兼容层；线上更新说明也仍写 `v0.110.1`。`0.4.5` 的目的就是把已验证的 Beta 兼容代码与实际发布包重新同步。
 
+## 0.5.4 起的双分支兼容门禁
+
+Workshop 同时声明支持 Steam 正式版与 `public-beta`，因此发布证据必须分别绑定两套游戏程序集，不能用一套分支的测试结果替代另一套：
+
+| Steam 分支 | 游戏版本 | 参考 build ID | 发布要求 |
+| --- | --- | --- | --- |
+| `public` | `v0.107.1` | `23811903` | 完整测试、无增量 Release 构建、真实启动 |
+| `public-beta` | `v0.111.0` | `24724944` | 完整测试、无增量 Release 构建、真实启动 |
+
+Steam 一次只保留当前选择的分支。切换前应把每个分支的 `data_sts2_windows_x86_64` 复制到仓库外的只读参考目录，并记录 app manifest build ID、`sts2.dll` SHA-256、BaseLib 版本与 SHA-256。游戏程序集和 BaseLib DLL 不得提交。最终 Workshop DLL 使用最低支持版本 `public v0.107.1` 构建；较新分支必须通过兼容测试和真实启动，避免编译时意外引用测试版独有 API。
+
 ## 本机构建
 
-准备 .NET 9 SDK、游戏和 BaseLib。推荐运行发布准备脚本：
+准备 .NET 9 SDK、BaseLib，以及已冻结的正式版和 `public-beta` 两套游戏程序集。先分别执行双分支门禁；以下路径仅为示例：
+
+```powershell
+$baseLibPath = 'D:\Steam\steamapps\workshop\content\2868840\3737335127\BaseLib\BaseLib.dll'
+$branches = @(
+  @{ Name = 'public'; Path = 'E:\Dev\Reference\STS2\public-0.107.1' },
+  @{ Name = 'public-beta'; Path = 'E:\Dev\Reference\STS2\public-beta-0.111.0' }
+)
+
+foreach ($branch in $branches) {
+  dotnet test .\tests\BetterMultiplayer.Tests.csproj -c Release --no-restore `
+    -p:STS2Path=$branch.Path -p:BaseLibPath=$baseLibPath
+  if ($LASTEXITCODE -ne 0) { throw "$($branch.Name) tests failed" }
+
+  dotnet build .\BetterMultiplayer.csproj -c Release --no-restore --no-incremental `
+    -p:STS2Path=$branch.Path -p:BaseLibPath=$baseLibPath
+  if ($LASTEXITCODE -ne 0) { throw "$($branch.Name) build failed" }
+}
+```
+
+双分支通过后，使用最低支持版本重建最终上传工作区：
 
 ```powershell
 .\tools\prepare-release.ps1 `
   -DotnetPath 'C:\Program Files\dotnet\dotnet.exe' `
-  -Sts2Path 'D:\Steam\steamapps\common\Slay the Spire 2' `
+  -Sts2Path 'E:\Dev\Reference\STS2\public-0.107.1' `
   -BaseLibPath 'D:\Steam\steamapps\workshop\content\2868840\3737335127\BaseLib\BaseLib.dll'
 ```
 
-脚本会运行测试和 Release 构建，重建 `artifacts/workshop-upload`，保留原发布包的三个文件格式，并输出 DLL 的 SHA-256。该工作区故意不包含 `previews/`，让官方上传器保留线上 6 张附加预览图。也可以省略参数，让脚本尝试使用 PATH 中的 `dotnet` 和本机常见 Steam 路径。
-
-手工等价命令：
-
-```powershell
-dotnet test .\tests\BetterMultiplayer.Tests.csproj -c Release `
-  -p:STS2Path='D:\Steam\steamapps\common\Slay the Spire 2' `
-  -p:BaseLibPath='D:\Steam\steamapps\workshop\content\2868840\3737335127\BaseLib\BaseLib.dll'
-
-dotnet build .\BetterMultiplayer.csproj -c Release `
-  -p:STS2Path='D:\Steam\steamapps\common\Slay the Spire 2' `
-  -p:BaseLibPath='D:\Steam\steamapps\workshop\content\2868840\3737335127\BaseLib\BaseLib.dll'
-```
+脚本会运行测试和 Release 构建，重建 `artifacts/workshop-upload`，保留原发布包的三个文件格式，并输出 DLL 的 SHA-256。该工作区故意不包含 `previews/`，让官方上传器保留线上 6 张附加预览图。第一次运行发布脚本前先另存当前线上版本的 DLL、JSON 和 SHA-256，因为脚本会重建 staging 与 Workshop 工作区。
 
 ## 发布顺序
 
-1. 拉取 `origin/main`，确认没有意外的本地修改。
-2. 更新三个版本来源、README 和 `workshop/workshop.json` 的中英文更新说明。
-3. 运行 `tools/prepare-release.ps1`，要求测试和构建全部通过。
-4. 只暂存本次发布文件，检查 diff 后提交。沿用仓库现有的 Conventional Commit 格式，例如：`chore(release): publish 0.4.5 beta compatibility update`。
-5. 确认 `git status --short` 没有输出，再用 `-RequireClean` 从该提交运行 `tools/prepare-release.ps1`。脚本会拒绝脏工作区，并要求 DLL 的 `ProductVersion` 精确记录当前 `HEAD`。
-6. 检查 `artifacts/workshop-upload/content` 仅有 DLL、JSON 和分支说明文本；工作区根目录不得出现 `previews/`。记录版本、提交号和 SHA-256。
-7. 推送 GitHub `main`，确认远端提交号与本地一致。
-8. 使用 Mega Crit 官方 `sts2-mod-uploader v0.2.0` 更新现有条目。`workshop/mod_id.txt` 已固定为 `3768337454`，不能删除或改成其他 ID。
-9. 通过上传器日志、Steam API、条目页面和订阅端实际下载四处复核。
-10. 最终确认 `git status --short` 没有待提交文件；`artifacts/workshop-upload` 和构建产物被忽略是正常现象。
+1. 获取 `origin/main`，确认没有意外的本地修改，并另存当前线上版本的 DLL、JSON 与 SHA-256。
+2. 固定正式版和 `public-beta` 两套程序集，记录分支、游戏版本、build ID、`sts2.dll` 与 BaseLib SHA-256。
+3. 更新三个版本来源、README 和 `workshop/workshop.json` 的中英文更新说明。
+4. 分别对两套程序集运行完整测试、无增量 Release 构建和真实游戏启动；任一分支未验证都不得声明双分支兼容。
+5. 只暂存本次发布文件，检查 diff 后提交。沿用仓库现有的 Conventional Commit 格式，例如：`chore(release): publish 0.5.4 stable compatibility update`。
+6. 确认 `git status --short` 没有输出，再用正式版程序集和 `-RequireClean` 运行 `tools/prepare-release.ps1`。脚本会拒绝脏工作区，并要求 DLL 的 `ProductVersion` 精确记录当前 `HEAD`。
+7. 检查 `artifacts/workshop-upload/content` 仅有 DLL、JSON 和分支说明文本；工作区根目录不得出现 `previews/`。记录版本、提交号和 SHA-256。
+8. 推送 GitHub `main`，再用 `git ls-remote origin refs/heads/main` 确认远端哈希与本地发布提交一致。
+9. 使用 Mega Crit 官方 `sts2-mod-uploader v0.2.0` 更新现有条目。`workshop/mod_id.txt` 已固定为 `3768337454`，不能删除或改成其他 ID。
+10. 只有 Steam API 确认远端 manifest、更新时间和内容大小变化后才归档本次上传日志；超时期间不要重复上传。
+11. 通过条目页面和订阅端实际下载继续复核版本、DLL `ProductVersion` 与 SHA-256，并在正式版和 `public-beta` 各启动一次。
+12. 最终确认 `git status --short` 没有待提交文件；`artifacts/workshop-upload` 和构建产物被忽略是正常现象。
 
 官方上传器命令：
 

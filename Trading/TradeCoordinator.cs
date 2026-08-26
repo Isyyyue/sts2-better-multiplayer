@@ -163,7 +163,11 @@ internal static class TradeCoordinator
         Sessions[sessionId] = snapshot;
         SessionByPlayer[senderId] = sessionId;
         SessionByPlayer[targetId] = sessionId;
-        DiagnosticRecorder.RecordSessionChanged(location, "pending");
+        DiagnosticRecorder.RecordSessionSnapshot(
+            snapshot,
+            "pending",
+            senderId,
+            targetId);
         BroadcastSnapshot(snapshot);
     }
 
@@ -179,7 +183,6 @@ internal static class TradeCoordinator
 
         if (!accepted)
         {
-            DiagnosticRecorder.RecordSessionChanged(session.Location, "canceled");
             EndSession(session, TradeSessionStatus.Canceled);
             return;
         }
@@ -197,7 +200,11 @@ internal static class TradeCoordinator
 
         session.Status = TradeSessionStatus.Active;
         session.Revision++;
-        DiagnosticRecorder.RecordSessionChanged(session.Location, "active");
+        DiagnosticRecorder.RecordSessionSnapshot(
+            session,
+            "active",
+            senderId,
+            session.OtherPlayer(senderId));
         BroadcastSnapshot(session);
     }
 
@@ -238,6 +245,11 @@ internal static class TradeCoordinator
         session.ConfirmedA = false;
         session.ConfirmedB = false;
         session.Revision++;
+        DiagnosticRecorder.RecordSessionSnapshot(
+            session,
+            "offer_updated",
+            senderId,
+            session.OtherPlayer(senderId));
         BroadcastSnapshot(session);
     }
 
@@ -285,6 +297,11 @@ internal static class TradeCoordinator
             session.ConfirmedA = confirmed;
         else
             session.ConfirmedB = confirmed;
+        DiagnosticRecorder.RecordSessionSnapshot(
+            session,
+            "confirmed",
+            senderId,
+            session.OtherPlayer(senderId));
         BroadcastSnapshot(session);
 
         if (session.ConfirmedA && session.ConfirmedB)
@@ -394,7 +411,10 @@ internal static class TradeCoordinator
         _activeLocation = null;
         _activeLocationOwner = null;
         if (location == TradeLocation.RestSite)
+        {
+            TradeRestSiteFlow.Reset();
             AssistSmithCoordinator.Reset();
+        }
         DiagnosticRecorder.RecordTradeStateReset(location, "cleanup", clearedSessionCount);
     }
 
@@ -457,7 +477,7 @@ internal static class TradeCoordinator
         }
 
         session.Status = TradeSessionStatus.Committing;
-        DiagnosticRecorder.RecordSessionChanged(session.Location, "committing");
+        DiagnosticRecorder.RecordSessionSnapshot(session, "committing");
         BroadcastSnapshot(session);
         TradeSessionSnapshot committed = session.Clone();
         committed.Status = TradeSessionStatus.Committed;
@@ -471,7 +491,7 @@ internal static class TradeCoordinator
         }
 
         TradeStateStore.MarkHostCommit(committed);
-        DiagnosticRecorder.RecordSessionChanged(session.Location, "committed");
+        DiagnosticRecorder.RecordSessionSnapshot(committed, "committed");
         TradeNetwork.Broadcast(new CommitEvent { Snapshot = committed }, applyLocally: false);
         RemoveSession(session);
         if (session.Location == TradeLocation.RestSite)
@@ -498,8 +518,8 @@ internal static class TradeCoordinator
     private static void EndSession(TradeSessionSnapshot session, TradeSessionStatus status)
     {
         session.Status = status;
-        DiagnosticRecorder.RecordSessionChanged(
-            session.Location,
+        DiagnosticRecorder.RecordSessionSnapshot(
+            session,
             status switch
             {
                 TradeSessionStatus.Pending => "pending",

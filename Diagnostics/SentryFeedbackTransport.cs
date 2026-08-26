@@ -334,11 +334,14 @@ internal static class DiagnosticFeedbackService
         FeedbackSendResult result = await Coordinator.TrySendAsync(() =>
         {
             DiagnosticRecorder.RecordFeedbackRequested();
+            DateTimeOffset createdAt = DateTimeOffset.UtcNow;
+            FeedbackContextTracker.CaptureCurrent();
             return FeedbackEventFactory.Create(
-                DiagnosticRecorder.Snapshot(),
+                DiagnosticRecorder.Snapshot(createdAt),
                 DiagnosticSystemInfo.Capture(source),
                 Guid.NewGuid(),
-                DateTimeOffset.UtcNow);
+                createdAt,
+                FeedbackContextTracker.Snapshot(createdAt));
         }, cancellationToken);
 
         string http = result.HttpStatus.HasValue

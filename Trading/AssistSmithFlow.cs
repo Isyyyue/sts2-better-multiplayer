@@ -1,3 +1,5 @@
+using BetterMultiplayer.Diagnostics;
+
 namespace BetterMultiplayer.Trading;
 
 internal sealed record AssistSmithResult(
@@ -33,6 +35,15 @@ internal static class AssistSmithFlow
 
     internal static void Complete(ulong playerId, AssistSmithResult result)
     {
+        DiagnosticRecorder.RecordAssistSmith(
+            "result_received",
+            playerId,
+            result.TargetId,
+            result.CardIndex,
+            result.CardId,
+            result.UpgradeLevel,
+            result.Success,
+            result.Success ? "completed" : "result_failed");
         lock (Gate)
         {
             if (Waiters.Remove(playerId, out TaskCompletionSource<AssistSmithResult>? waiter))

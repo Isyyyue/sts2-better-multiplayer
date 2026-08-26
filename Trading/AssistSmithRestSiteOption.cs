@@ -22,6 +22,7 @@ using MegaCrit.Sts2.Core.Nodes.Screens.Overlays;
 using MegaCrit.Sts2.Core.Nodes.Vfx;
 using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.Localization;
+using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading;
 
@@ -58,6 +59,15 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
     {
         BetterMultiplayerMod.Logger.Info(
             $"Assist Smith option selected: player={_owner.NetId}");
+        DiagnosticRecorder.RecordAssistSmith(
+            "selected",
+            _owner.NetId,
+            0,
+            -1,
+            string.Empty,
+            0,
+            success: true,
+            "accepted");
         AssistSmithCoordinator.Register(_owner.NetId);
         Task<AssistSmithResult> resultTask = AssistSmithFlow.WaitForResult(_owner.NetId);
 
@@ -67,6 +77,15 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
         AssistSmithResult result = await resultTask;
         if (!result.Success)
         {
+            DiagnosticRecorder.RecordAssistSmith(
+                "failed",
+                _owner.NetId,
+                result.TargetId,
+                result.CardIndex,
+                result.CardId,
+                result.UpgradeLevel,
+                success: false,
+                FailureReason(result.Error));
             if (!string.IsNullOrWhiteSpace(result.Error) && LocalContext.IsMe(_owner))
                 BetterMultiplayerMod.Logger.Warn($"Assist Smith failed: {ModText.Resolve(result.Error)}");
             return false;
@@ -84,6 +103,15 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
                 out CardModel? card,
                 out error))
         {
+            DiagnosticRecorder.RecordAssistSmith(
+                "failed",
+                _owner.NetId,
+                result.TargetId,
+                result.CardIndex,
+                result.CardId,
+                result.UpgradeLevel,
+                success: false,
+                target is null ? "player_missing" : "validation_failed");
             BetterMultiplayerMod.Logger.Error($"Synchronizing Assist Smith failed: {ModText.Resolve(error)}");
             return false;
         }
@@ -92,6 +120,15 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
         _selection = [card!];
         CardCmd.Upgrade(card!, CardPreviewStyle.None);
         await Hook.AfterRestSiteSmith(target.RunState, target);
+        DiagnosticRecorder.RecordAssistSmith(
+            "applied",
+            _owner.NetId,
+            target.NetId,
+            result.CardIndex,
+            result.CardId,
+            result.UpgradeLevel,
+            success: true,
+            "completed");
         return true;
     }
 
@@ -135,6 +172,15 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
                 return;
             }
 
+            DiagnosticRecorder.RecordAssistSmith(
+                "request_sent",
+                _owner.NetId,
+                target.NetId,
+                cardIndex,
+                card.Id.ToString(),
+                card.CurrentUpgradeLevel,
+                success: true,
+                "accepted");
             TradeNetwork.SendRequest(new AssistSmithRequest
             {
                 TargetId = target.NetId,
@@ -330,8 +376,36 @@ internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOp
     private static bool ShouldCancelTargeting() =>
         NOverlayStack.Instance?.ScreenCount > 0 || NCapstoneContainer.Instance?.InUse == true;
 
-    private static void SendCanceled() =>
+    private void SendCanceled()
+    {
+        DiagnosticRecorder.RecordAssistSmith(
+            "canceled",
+            _owner.NetId,
+            0,
+            -1,
+            string.Empty,
+            0,
+            success: false,
+            "canceled");
         TradeNetwork.SendRequest(new AssistSmithRequest { Canceled = true, CardIndex = -1 });
+    }
+
+    private static string FailureReason(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return "canceled";
+        if (error == ModText.Token(TextKey.AssistSmithPlayerDisconnected))
+            return "disconnected";
+        if (error == ModText.Token(TextKey.AssistSmithPlayerLeft))
+            return "player_missing";
+        if (error == ModText.Token(TextKey.AssistSmithDeckChanged) ||
+            error == ModText.Token(TextKey.AssistSmithCardNotUpgradable) ||
+            error == ModText.Token(TextKey.AssistSmithOtherPlayersOnly))
+        {
+            return "validation_failed";
+        }
+        return "result_failed";
+    }
 }
 
 internal static class AssistSmithTargetPolicy

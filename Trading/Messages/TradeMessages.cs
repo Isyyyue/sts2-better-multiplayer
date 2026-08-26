@@ -192,17 +192,7 @@ public sealed class SessionEvent : ICustomMessage
         if (TradeNetwork.IsHostSender(senderId))
         {
             TradeStateStore.SetSession(Snapshot);
-            DiagnosticRecorder.RecordSessionChanged(
-                Snapshot.Location,
-                Snapshot.Status switch
-                {
-                    TradeSessionStatus.Pending => "pending",
-                    TradeSessionStatus.Active => "active",
-                    TradeSessionStatus.Committing => "committing",
-                    TradeSessionStatus.Committed => "committed",
-                    TradeSessionStatus.Canceled => "canceled",
-                    _ => "unknown"
-                });
+            DiagnosticRecorder.RecordSessionSnapshot(Snapshot, "snapshot_received");
         }
     }
 
@@ -218,7 +208,10 @@ public sealed class CommitEvent : ICustomMessage
     public void HandleMessage(ulong senderId)
     {
         if (TradeNetwork.IsHostSender(senderId))
+        {
+            DiagnosticRecorder.RecordSessionSnapshot(Snapshot, "commit_received");
             TradeStateStore.ApplyCommit(Snapshot);
+        }
     }
 
     public void Serialize(PacketWriter writer) => writer.Write(Snapshot);

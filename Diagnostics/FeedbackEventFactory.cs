@@ -23,21 +23,30 @@ internal static class FeedbackEventFactory
         IReadOnlyList<DiagnosticEntry> snapshot,
         DiagnosticSystemInfo system,
         Guid eventId,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        FeedbackCorrelationContext? correlation = null)
     {
         system = system.Normalize();
+        correlation = correlation?.Normalize();
         string id = eventId.ToString("N").ToLowerInvariant();
         DateTimeOffset timestamp = createdAt.ToUniversalTime();
         DateTimeOffset cutoff = timestamp - DiagnosticRecorder.Retention;
         List<DiagnosticEntry> included = snapshot
             .Where(entry => entry.Timestamp.ToUniversalTime() >= cutoff &&
-                entry.Timestamp.ToUniversalTime() <= timestamp)
+                entry.Timestamp.ToUniversalTime() <= timestamp &&
+                (correlation is null || correlation.Generation == 0 ||
+                    entry.ContextGeneration == correlation.Generation))
             .TakeLast(DiagnosticRecorder.Capacity)
             .ToList();
 
         while (true)
         {
-            SentryEventDto sentryEvent = BuildEvent(id, timestamp, system, included);
+            SentryEventDto sentryEvent = BuildEvent(
+                id,
+                timestamp,
+                system,
+                correlation,
+                included);
             byte[] eventBytes = JsonSerializer.SerializeToUtf8Bytes(sentryEvent, JsonOptions);
             if (eventBytes.Length <= MaxEventBytes)
                 return new FeedbackEventPayload(id, timestamp, eventBytes);
@@ -51,12 +60,30 @@ internal static class FeedbackEventFactory
         string eventId,
         DateTimeOffset createdAt,
         DiagnosticSystemInfo system,
+        FeedbackCorrelationContext? correlation,
         IReadOnlyList<DiagnosticEntry> entries)
     {
         string area = ReportArea(entries);
         List<DiagnosticEntryDto> eventDtos = entries
             .Select(entry => Entry(entry, createdAt))
             .ToList();
+        DiagnosticConclusionDto conclusion = Analyze(entries);
+        Dictionary<string, string> tags = new(StringComparer.Ordinal)
+        {
+            ["report.kind"] = "manual",
+            ["report.code"] = area,
+            ["mod.version"] = DiagnosticSystemInfo.SafeVersion(system.ModVersion),
+            ["game.version"] = DiagnosticSystemInfo.SafeVersion(system.GameBuild),
+            ["baselib.version"] = DiagnosticSystemInfo.SafeVersion(system.BaseLibVersion)
+        };
+        if (correlation is not null)
+        {
+            tags["multiplayer.lobby_id"] = correlation.ScopedLobbyId;
+            tags["multiplayer.role"] = correlation.NetworkRole;
+            tags["multiplayer.platform"] = correlation.NetworkPlatform;
+            tags["multiplayer.player_count"] = correlation.PlayerCount.ToString(
+                CultureInfo.InvariantCulture);
+        }
 
         return new SentryEventDto(
             eventId,
@@ -66,19 +93,33 @@ internal static class FeedbackEventFactory
             "BetterMultiplayer.PlayerReport",
             $"better-multiplayer@{DiagnosticSystemInfo.SafeVersion(system.ModVersion)}",
             "production",
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["report.kind"] = "manual",
-                ["report.code"] = area,
-                ["mod.version"] = DiagnosticSystemInfo.SafeVersion(system.ModVersion),
-                ["game.version"] = DiagnosticSystemInfo.SafeVersion(system.GameBuild),
-                ["baselib.version"] = DiagnosticSystemInfo.SafeVersion(system.BaseLibVersion)
-            },
+            tags,
             ["better-multiplayer-feedback", area],
             new LogEntryDto("Player submitted Better Multiplayer diagnostics"),
+            correlation is null ? null : new UserDto(correlation.ScopedPlayerId),
             new ExtraDto(new DiagnosticReportDto(
-                "One click uploads once; no screenshots, saves, logs, player IDs, room data, or user text.",
+                "One click uploads fixed-shape diagnostics, platform player and lobby IDs, participants and character IDs, trade or smith timing, and the reporting client's environment. It excludes screenshots, saves, raw logs, names, passwords, room names, local paths, IP fields, and user text.",
+                Timestamp(createdAt),
                 system,
+                correlation is null ? null : new CorrelationDto(
+                    correlation.ScopedPlayerId,
+                    correlation.ScopedLobbyId,
+                    correlation.NetworkRole,
+                    correlation.NetworkPlatform,
+                    correlation.PlayerCount,
+                    Timestamp(correlation.FirstObservedAt),
+                    Timestamp(correlation.LastObservedAt),
+                    "reporter_local_only",
+                    correlation.Participants.Select(participant => new ParticipantDto(
+                        $"{correlation.NetworkPlatform}:{participant.PlayerId}",
+                        participant.CharacterId,
+                        participant.IsHost,
+                        participant.IsLocal,
+                        participant.IsConnected)).ToArray(),
+                    correlation.PlayerCount > correlation.Participants.Count),
+                conclusion.CauseCode,
+                conclusion.Confidence,
+                conclusion.EvidenceSequence,
                 eventDtos)),
             new SdkDto(
                 "isyyyue.csharp.better-multiplayer",
@@ -133,10 +174,43 @@ internal static class FeedbackEventFactory
                 "merchant" or "rest_site" or "unknown" => facts.Location,
                 _ => null
             },
+            Stage = facts.Stage switch
+            {
+                "pending" or "active" or "offer_updated" or "confirmed" or
+                "committing" or "committed" or "canceled" or "snapshot_received" or
+                "commit_received" or "commit_applied" or "commit_failed" or
+                "selected" or "registered" or "request_sent" or "request_pending" or
+                "request_replayed" or "request_received" or "result_broadcast" or
+                "result_received" or "applied" or "failed" or "disconnected" or
+                "reset" => facts.Stage,
+                _ => facts.Stage is null ? null : "unknown"
+            },
+            SessionId = SafeOptionalIdentifier(facts.SessionId),
+            ActorId = SafeOptionalIdentifier(facts.ActorId),
+            TargetId = SafeOptionalIdentifier(facts.TargetId),
             Attempt = facts.Attempt.HasValue ? Math.Clamp(facts.Attempt.Value, 0, 255) : null,
             Count = facts.Count.HasValue ? Math.Clamp(facts.Count.Value, 0, 255) : null,
             Revision = facts.Revision.HasValue
                 ? Math.Clamp(facts.Revision.Value, 0, 1_000_000)
+                : null,
+            ActorCardCount = SafeOptionalCount(facts.ActorCardCount),
+            ActorRelicCount = SafeOptionalCount(facts.ActorRelicCount),
+            ActorPotionCount = SafeOptionalCount(facts.ActorPotionCount),
+            ActorGold = SafeOptionalGold(facts.ActorGold),
+            ActorReportedGold = SafeOptionalGold(facts.ActorReportedGold),
+            TargetCardCount = SafeOptionalCount(facts.TargetCardCount),
+            TargetRelicCount = SafeOptionalCount(facts.TargetRelicCount),
+            TargetPotionCount = SafeOptionalCount(facts.TargetPotionCount),
+            TargetGold = SafeOptionalGold(facts.TargetGold),
+            TargetReportedGold = SafeOptionalGold(facts.TargetReportedGold),
+            CardIndex = facts.CardIndex.HasValue
+                ? Math.Clamp(facts.CardIndex.Value, 0, ushort.MaxValue)
+                : null,
+            ItemId = facts.ItemId is null
+                ? null
+                : FeedbackValueSanitizer.ModelId(facts.ItemId),
+            UpgradeLevel = facts.UpgradeLevel.HasValue
+                ? Math.Clamp(facts.UpgradeLevel.Value, 0, byte.MaxValue)
                 : null,
             Reason = facts.Reason switch
             {
@@ -146,7 +220,7 @@ internal static class FeedbackEventFactory
                 "host_event" or "not_connected" or "already_trading" or "used" or
                 "disconnected" or "declined" or "expired" or "invalid_session" or
                 "revision_mismatch" or "player_missing" or "validation_failed" or
-                "apply_failed" or "completed" or "canceled" => facts.Reason,
+                "apply_failed" or "result_failed" or "completed" or "canceled" => facts.Reason,
                 _ => facts.Reason is null ? null : "other"
             },
             SessionStatus = facts.SessionStatus switch
@@ -157,6 +231,20 @@ internal static class FeedbackEventFactory
             }
         };
     }
+
+    private static string? SafeOptionalIdentifier(string? value)
+    {
+        if (value is null)
+            return null;
+        string safe = FeedbackValueSanitizer.Identifier(value);
+        return safe == "unavailable" ? null : safe;
+    }
+
+    private static int? SafeOptionalCount(int? value) =>
+        value.HasValue ? Math.Clamp(value.Value, 0, byte.MaxValue) : null;
+
+    private static int? SafeOptionalGold(int? value) =>
+        value.HasValue ? Math.Clamp(value.Value, 0, 1_000_000_000) : null;
 
     private static DiagnosticRect Normalize(DiagnosticRect rect) => new(
         SafeCoordinate(rect.X),
@@ -185,6 +273,20 @@ internal static class FeedbackEventFactory
 
     private static string ReportArea(IReadOnlyList<DiagnosticEntry> entries)
     {
+        DiagnosticEntry? latestAssistSmith = entries
+            .Where(entry => entry.Code == DiagnosticEventCode.AssistSmithChanged)
+            .OrderBy(entry => entry.Sequence)
+            .LastOrDefault();
+        DiagnosticEntry? latestTrade = entries
+            .Where(entry => TradeLocation(entry) is not null)
+            .OrderBy(entry => entry.Sequence)
+            .LastOrDefault();
+        if (latestAssistSmith is not null &&
+            (latestTrade is null || latestAssistSmith.Sequence >= latestTrade.Sequence))
+        {
+            return "assist_smith";
+        }
+
         string? latestLocation = entries
             .OrderBy(entry => entry.Sequence)
             .Select(TradeLocation)
@@ -195,6 +297,80 @@ internal static class FeedbackEventFactory
             "rest_site" => "rest_site_trade",
             _ => "general"
         };
+    }
+
+    private static DiagnosticConclusionDto Analyze(IReadOnlyList<DiagnosticEntry> entries)
+    {
+        DiagnosticEntry? evidence = entries
+            .Where(entry => entry.Code == DiagnosticEventCode.AssistSmithChanged &&
+                entry.Facts?.Stage is "failed" or "disconnected")
+            .OrderBy(entry => entry.Sequence)
+            .LastOrDefault();
+        if (evidence is not null)
+        {
+            return new DiagnosticConclusionDto(
+                "assist_smith_failed",
+                "high",
+                evidence.Sequence);
+        }
+
+        DiagnosticEntry? pendingSmith = entries
+            .Where(entry => entry.Code == DiagnosticEventCode.AssistSmithChanged &&
+                entry.Facts?.Stage == "request_pending")
+            .OrderBy(entry => entry.Sequence)
+            .LastOrDefault();
+        if (pendingSmith is not null && !entries.Any(entry =>
+                entry.Sequence > pendingSmith.Sequence &&
+                entry.Code == DiagnosticEventCode.AssistSmithChanged &&
+                entry.Facts?.Stage is "request_replayed" or "result_received" or "applied"))
+        {
+            return new DiagnosticConclusionDto(
+                "assist_smith_request_pending",
+                "medium",
+                pendingSmith.Sequence);
+        }
+
+        evidence = entries
+            .Where(entry => entry.Code == DiagnosticEventCode.TradeAvailabilityHandled &&
+                entry.Facts?.Reason == "no_active_location")
+            .OrderBy(entry => entry.Sequence)
+            .LastOrDefault();
+        if (evidence is not null)
+        {
+            return new DiagnosticConclusionDto(
+                "trade_location_inactive",
+                "high",
+                evidence.Sequence);
+        }
+
+        evidence = entries
+            .Where(entry => entry.Code == DiagnosticEventCode.TradeAvailabilityHandled &&
+                entry.Facts?.Reason == "wrong_location")
+            .OrderBy(entry => entry.Sequence)
+            .LastOrDefault();
+        if (evidence is not null)
+        {
+            return new DiagnosticConclusionDto(
+                "trade_location_mismatch",
+                "high",
+                evidence.Sequence);
+        }
+
+        DiagnosticEntry? waiting = entries
+            .Where(entry => entry.Code == DiagnosticEventCode.TradeWaitingForPlayers)
+            .OrderBy(entry => entry.Sequence)
+            .LastOrDefault();
+        if (waiting is not null && !entries.Any(entry =>
+                entry.Sequence > waiting.Sequence &&
+                entry.Code == DiagnosticEventCode.TradeAvailabilityReceived))
+        {
+            return new DiagnosticConclusionDto(
+                "peer_availability_missing",
+                "medium",
+                waiting.Sequence);
+        }
+
+        return new DiagnosticConclusionDto("unknown", "unknown", null);
     }
 
     private static string? TradeLocation(DiagnosticEntry entry)
@@ -228,6 +404,7 @@ internal static class FeedbackEventFactory
         DiagnosticEventCode.TradeInviteRequested => "trade.invite_requested",
         DiagnosticEventCode.TradeInviteRejected => "trade.invite_rejected",
         DiagnosticEventCode.TradeSessionChanged => "trade.session_changed",
+        DiagnosticEventCode.AssistSmithChanged => "assist_smith.changed",
         DiagnosticEventCode.FeedbackRequested => "feedback.requested",
         _ => "unknown"
     };
@@ -255,17 +432,49 @@ internal static class FeedbackEventFactory
         IReadOnlyDictionary<string, string> Tags,
         IReadOnlyList<string> Fingerprint,
         LogEntryDto Logentry,
+        UserDto? User,
         ExtraDto Extra,
         SdkDto Sdk);
 
     private sealed record LogEntryDto(string Formatted);
 
+    private sealed record UserDto(string Id);
+
     private sealed record ExtraDto(DiagnosticReportDto Diagnostics);
 
     private sealed record DiagnosticReportDto(
         string Privacy,
+        string SubmittedAtUtc,
         DiagnosticSystemInfo System,
+        CorrelationDto? Multiplayer,
+        string CauseCode,
+        string Confidence,
+        long? EvidenceSequence,
         IReadOnlyList<DiagnosticEntryDto> Events);
+
+    private sealed record CorrelationDto(
+        string PlayerId,
+        string LobbyId,
+        string NetworkRole,
+        string NetworkPlatform,
+        int PlayerCount,
+        string FirstObservedAtUtc,
+        string LastObservedAtUtc,
+        string EnvironmentScope,
+        IReadOnlyList<ParticipantDto> Participants,
+        bool ParticipantsTruncated);
+
+    private sealed record ParticipantDto(
+        string PlayerId,
+        string CharacterId,
+        bool IsHost,
+        bool IsLocal,
+        bool IsConnected);
+
+    private sealed record DiagnosticConclusionDto(
+        string CauseCode,
+        string Confidence,
+        long? EvidenceSequence);
 
     private sealed record DiagnosticEntryDto(
         long Sequence,

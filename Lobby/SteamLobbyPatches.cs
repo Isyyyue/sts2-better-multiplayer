@@ -10,6 +10,7 @@ using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Runs;
 using Steamworks;
 using StsSteamClient = MegaCrit.Sts2.Core.Multiplayer.Transport.Steam.SteamClient;
+using BetterMultiplayer.Diagnostics;
 using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Lobby;
@@ -20,17 +21,29 @@ internal static class SteamHostStartPatch
     [HarmonyPostfix]
     private static void Postfix(SteamHost __instance, ref Task<NetErrorInfo?> __result)
     {
-        if (RoomSession.HasPending)
-            __result = CompleteStart(__result, __instance);
+        bool configurePrivateRoom = RoomSession.HasPending;
+        __result = CompleteStart(__result, __instance, configurePrivateRoom);
     }
 
-    private static async Task<NetErrorInfo?> CompleteStart(Task<NetErrorInfo?> original, SteamHost host)
+    private static async Task<NetErrorInfo?> CompleteStart(
+        Task<NetErrorInfo?> original,
+        SteamHost host,
+        bool configurePrivateRoom)
     {
         NetErrorInfo? error = await original;
         if (!error.HasValue && host.LobbyId.HasValue)
-            RoomSession.HostStarted(host.LobbyId.Value);
-        else
+        {
+            if (configurePrivateRoom)
+                RoomSession.HostStarted(host.LobbyId.Value);
+            FeedbackContextTracker.ObserveSteamSession(
+                host.NetId,
+                host.LobbyId.Value.m_SteamID,
+                "host");
+        }
+        else if (configurePrivateRoom)
+        {
             RoomSession.HostFailed();
+        }
         return error;
     }
 }
@@ -75,8 +88,12 @@ internal static class SteamClientProofPatch
         ulong lobbyId)
     {
         NetErrorInfo? error = await original;
-        if (!error.HasValue && !JoinContext.SetMemberProof(lobbyId, client.NetId))
-            BetterMultiplayerMod.Logger.Warn($"Could not write the password proof to Steam lobby {lobbyId}");
+        if (!error.HasValue)
+        {
+            FeedbackContextTracker.ObserveSteamSession(client.NetId, lobbyId, "client");
+            if (!JoinContext.SetMemberProof(lobbyId, client.NetId))
+                BetterMultiplayerMod.Logger.Warn($"Could not write the password proof to Steam lobby {lobbyId}");
+        }
         return error;
     }
 }

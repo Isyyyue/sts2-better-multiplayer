@@ -154,7 +154,7 @@ internal static class ModText
             [TextKey.JoinRoomDescription] = ("通过房间名称和密码联机", "Enter a room name and password"),
             [TextKey.CreateRoomDescription] = ("创建房间并选择官方游戏模式", "Create a room, then choose a game mode"),
             [TextKey.SendFeedback] = ("发送反馈", "Send Feedback"),
-            [TextKey.SendFeedbackTooltip] = ("一次上传脱敏的模组诊断；不包含截图、存档、日志、玩家 ID 或房间信息", "Upload anonymized mod diagnostics once; no screenshots, saves, logs, player IDs, or room details"),
+            [TextKey.SendFeedbackTooltip] = ("主动上传本局诊断：平台账号与大厅 ID、参与者角色、交易和锻牌时序，以及本机 Mod ID 与版本。\n不含昵称、房名、密码、IP、本机路径、截图、存档、原始日志或输入文本", "Manually upload session diagnostics: platform account and lobby IDs, participant characters, trade and smith timing, and this device's mod IDs and versions.\nNo names, room names, passwords, IPs, local paths, screenshots, saves, raw logs, or entered text"),
             [TextKey.SendingFeedback] = ("正在提交诊断反馈……", "Submitting diagnostic feedback..."),
             [TextKey.FeedbackSubmitted] = ("反馈已提交。编号：{0}", "Feedback submitted. Report: {0}"),
             [TextKey.FeedbackFailed] = ("反馈发送失败，请检查网络后重试。", "Feedback could not be sent. Check your connection and try again."),

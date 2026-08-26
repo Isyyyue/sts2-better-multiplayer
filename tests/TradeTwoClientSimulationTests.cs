@@ -7,7 +7,6 @@ using BetterMultiplayer.Trading;
 using BetterMultiplayer.Trading.Messages;
 using MegaCrit.Sts2.Core.Entities.Multiplayer;
 using MegaCrit.Sts2.Core.Entities.Players;
-using MegaCrit.Sts2.Core.Multiplayer;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Multiplayer.Quality;
 using MegaCrit.Sts2.Core.Multiplayer.Serialization;
@@ -262,10 +261,12 @@ public sealed class TradeTwoClientSimulationTests : IDisposable
             _previousState = _stateProperty.GetValue(_manager);
             _previousNetService = _netServiceProperty.GetValue(_manager);
 
-            NetService = new RecordingHostNetService(HostPlayerId);
+            INetGameService netService = DispatchProxy.Create<INetGameService, RecordingHostNetService>();
+            NetService = (RecordingHostNetService)(object)netService;
+            NetService.Configure(HostPlayerId);
             _players = playerIds.Select(CreatePlayer).ToList();
             _stateProperty.SetValue(_manager, CreateRunState(_players));
-            _netServiceProperty.SetValue(_manager, NetService);
+            _netServiceProperty.SetValue(_manager, netService);
         }
 
         internal RecordingHostNetService NetService { get; }
@@ -298,25 +299,15 @@ public sealed class TradeTwoClientSimulationTests : IDisposable
         }
     }
 
-    internal sealed class RecordingHostNetService(ulong netId) : INetGameService
+    public class RecordingHostNetService : DispatchProxy
     {
         private readonly Queue<AvailabilityEvent> _pendingAvailability = [];
+        private ulong _netId;
 
         internal int BroadcastCount { get; private set; }
         internal int PendingAvailabilityCount => _pendingAvailability.Count;
 
-        public ulong NetId { get; } = netId;
-        public bool IsConnected => true;
-        public bool IsGameLoading => false;
-        public NetGameType Type => NetGameType.Host;
-        public PlatformType Platform => default;
-        public PeerVersionInfo LocalVersion => default;
-
-        public event Action<NetErrorInfo>? Disconnected
-        {
-            add { }
-            remove { }
-        }
+        internal void Configure(ulong netId) => _netId = netId;
 
         internal bool DeliverNextAvailabilityTo(LogicalClientView view)
         {
@@ -327,42 +318,29 @@ public sealed class TradeTwoClientSimulationTests : IDisposable
             return true;
         }
 
-        public void SendMessage<T>(T message, ulong playerId) where T : INetMessage =>
-            Record(message);
-
-        public void SendMessage<T>(T message) where T : INetMessage => Record(message);
-
-        public void RegisterMessageHandler<T>(MessageHandlerDelegate<T> messageHandlerDelegate)
-            where T : INetMessage
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
+            ArgumentNullException.ThrowIfNull(targetMethod);
+
+            return targetMethod.Name switch
+            {
+                "get_NetId" => _netId,
+                "get_IsConnected" => true,
+                "get_IsGameLoading" => false,
+                "get_Type" => NetGameType.Host,
+                "get_Platform" => default(PlatformType),
+                "get_LocalVersion" => Activator.CreateInstance(targetMethod.ReturnType),
+                "SendMessage" => Record(args?[0]),
+                "GetStatsForPeer" or "GetRawLobbyIdentifier" => null,
+                "add_Disconnected" or "remove_Disconnected" or
+                    "RegisterMessageHandler" or "UnregisterMessageHandler" or
+                    "Update" or "Disconnect" or "SetGameLoading" or
+                    "SetBufferMessages" => null,
+                _ => throw new MissingMethodException(targetMethod.DeclaringType?.FullName, targetMethod.Name)
+            };
         }
 
-        public void UnregisterMessageHandler<T>(MessageHandlerDelegate<T> messageHandlerDelegate)
-            where T : INetMessage
-        {
-        }
-
-        public void Update()
-        {
-        }
-
-        public void Disconnect(NetError reason, bool now = false)
-        {
-        }
-
-        public ConnectionStats? GetStatsForPeer(ulong peerId) => null;
-
-        public void SetGameLoading(bool isLoading)
-        {
-        }
-
-        public void SetBufferMessages(bool bufferMessages)
-        {
-        }
-
-        public string? GetRawLobbyIdentifier() => null;
-
-        private void Record<T>(T message) where T : INetMessage
+        private object? Record(object? message)
         {
             BroadcastCount++;
             if (message is CustomMessageWrapper
@@ -377,6 +355,8 @@ public sealed class TradeTwoClientSimulationTests : IDisposable
                     Location = availability.Location
                 });
             }
+
+            return null;
         }
     }
 

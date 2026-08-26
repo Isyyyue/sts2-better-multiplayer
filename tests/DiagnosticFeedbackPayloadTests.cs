@@ -98,7 +98,11 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
             -10,
             999999,
             -20,
-            999999);
+            999999,
+            [
+                new DiagnosticModInfo("safe.example-mod", "1.2.3"),
+                new DiagnosticModInfo(malicious, malicious)
+            ]);
         DiagnosticControlState unsafeControl = new(
             new DiagnosticRect(float.NaN, float.PositiveInfinity, -999999, 999999),
             new DiagnosticRect(1, 2, 3, 4),
@@ -151,6 +155,13 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
         Assert.Equal(
             "merchant_trade",
             root.GetProperty("tags").GetProperty("report.code").GetString());
+        JsonElement loadedMods = root.GetProperty("extra")
+            .GetProperty("diagnostics")
+            .GetProperty("system")
+            .GetProperty("loaded_mods");
+        JsonElement loadedMod = Assert.Single(loadedMods.EnumerateArray());
+        Assert.Equal("safe.example-mod", loadedMod.GetProperty("id").GetString());
+        Assert.Equal("1.2.3", loadedMod.GetProperty("version").GetString());
         Assert.Equal(
             "external:control",
             root.GetProperty("extra")
@@ -309,6 +320,40 @@ public sealed class DiagnosticFeedbackPayloadTests : IDisposable
         Assert.Equal(255, facts.GetProperty("attempt").GetInt32());
         Assert.Equal("other", facts.GetProperty("reason").GetString());
         Assert.Equal("unknown", facts.GetProperty("session_status").GetString());
+    }
+
+    [Fact]
+    public void LoadedModListIsDeduplicatedBoundedAndContainsNoPaths()
+    {
+        DateTimeOffset createdAt = DateTimeOffset.Parse("2026-08-21T04:00:00Z");
+        List<DiagnosticModInfo> mods = Enumerable.Range(0, DiagnosticSystemInfo.MaxLoadedMods + 8)
+            .Select(index => new DiagnosticModInfo($"example.mod.{index:D2}", "1.0.0"))
+            .ToList();
+        mods.Add(new DiagnosticModInfo("example.mod.00", "2.0.0"));
+        mods.Add(new DiagnosticModInfo("C:\\Users\\Private\\secret.dll", "9.9.9"));
+        DiagnosticSystemInfo system = SafeSystem() with { LoadedMods = mods };
+
+        FeedbackEventPayload payload = FeedbackEventFactory.Create(
+            [],
+            system,
+            Guid.Parse("fc6d8c0c-43fc-4630-ad85-0ee518f1b9d0"),
+            createdAt);
+        string json = Encoding.UTF8.GetString(payload.EventBytes);
+
+        using JsonDocument document = JsonDocument.Parse(payload.EventBytes);
+        JsonElement diagnosticSystem = document.RootElement.GetProperty("extra")
+            .GetProperty("diagnostics")
+            .GetProperty("system");
+        JsonElement loadedMods = diagnosticSystem.GetProperty("loaded_mods");
+        Assert.Equal(DiagnosticSystemInfo.MaxLoadedMods, loadedMods.GetArrayLength());
+        Assert.True(diagnosticSystem.GetProperty("loaded_mods_truncated").GetBoolean());
+        Assert.Equal("2.0.0", loadedMods.EnumerateArray()
+            .Single(mod => mod.GetProperty("id").GetString() == "example.mod.00")
+            .GetProperty("version")
+            .GetString());
+        Assert.DoesNotContain("C:\\\\Users", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret.dll", json, StringComparison.OrdinalIgnoreCase);
+        Assert.True(payload.EventBytes.Length <= FeedbackEventFactory.MaxEventBytes);
     }
 
     private static DiagnosticSystemInfo SafeSystem() => new(

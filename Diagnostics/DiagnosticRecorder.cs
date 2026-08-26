@@ -28,6 +28,7 @@ internal enum DiagnosticEventCode
     TradeInviteRequested,
     TradeInviteRejected,
     TradeSessionChanged,
+    AssistSmithChanged,
     FeedbackRequested
 }
 
@@ -66,7 +67,8 @@ internal sealed record DiagnosticEntry(
     DiagnosticEventCode Code,
     DiagnosticControlId Control,
     DiagnosticControlState? ControlState,
-    DiagnosticTradeFacts? Facts = null);
+    DiagnosticTradeFacts? Facts = null,
+    long ContextGeneration = 0);
 
 internal static class DiagnosticRecorder
 {
@@ -244,6 +246,81 @@ internal static class DiagnosticRecorder
                 remoteConfirmed: remoteConfirmed,
                 sessionStatus: SafeSessionStatus(status)));
 
+    internal static void RecordSessionSnapshot(
+        TradeSessionSnapshot snapshot,
+        string stage) =>
+        RecordSessionSnapshot(snapshot, stage, snapshot.PlayerA, snapshot.PlayerB);
+
+    internal static void RecordSessionSnapshot(
+        TradeSessionSnapshot snapshot,
+        string stage,
+        ulong actorId,
+        ulong targetId)
+    {
+        bool actorIsA = actorId != snapshot.PlayerB;
+        TradeOffer actorOffer = actorIsA ? snapshot.OfferA : snapshot.OfferB;
+        TradeOffer targetOffer = actorIsA ? snapshot.OfferB : snapshot.OfferA;
+        ulong safeActorId = actorIsA ? snapshot.PlayerA : snapshot.PlayerB;
+        ulong safeTargetId = actorIsA ? snapshot.PlayerB : snapshot.PlayerA;
+        Record(
+            DiagnosticEventCode.TradeSessionChanged,
+            facts: new DiagnosticTradeFacts(
+                Location: Location(snapshot.Location),
+                Stage: SafeStage(stage),
+                SessionId: snapshot.SessionId.ToString(CultureInfo.InvariantCulture),
+                ActorId: safeActorId.ToString(CultureInfo.InvariantCulture),
+                TargetId: safeTargetId.ToString(CultureInfo.InvariantCulture),
+                Revision: Math.Clamp(snapshot.Revision, 0, 1_000_000),
+                Success: snapshot.Status == TradeSessionStatus.Committed,
+                ActorConfirmed: actorIsA ? snapshot.ConfirmedA : snapshot.ConfirmedB,
+                TargetConfirmed: actorIsA ? snapshot.ConfirmedB : snapshot.ConfirmedA,
+                ActorCardCount: SafeCount(actorOffer.CardIndices.Count),
+                ActorRelicCount: SafeCount(actorOffer.RelicIndices.Count),
+                ActorPotionCount: SafeCount(actorOffer.PotionSlotIndices.Count),
+                ActorGold: SafeGold(actorOffer.Gold),
+                ActorReportedGold: SafeGold(actorIsA ? snapshot.GoldA : snapshot.GoldB),
+                TargetCardCount: SafeCount(targetOffer.CardIndices.Count),
+                TargetRelicCount: SafeCount(targetOffer.RelicIndices.Count),
+                TargetPotionCount: SafeCount(targetOffer.PotionSlotIndices.Count),
+                TargetGold: SafeGold(targetOffer.Gold),
+                TargetReportedGold: SafeGold(actorIsA ? snapshot.GoldB : snapshot.GoldA),
+                SessionStatus: SafeSessionStatus(snapshot.Status switch
+                {
+                    TradeSessionStatus.Pending => "pending",
+                    TradeSessionStatus.Active => "active",
+                    TradeSessionStatus.Committing => "committing",
+                    TradeSessionStatus.Committed => "committed",
+                    TradeSessionStatus.Canceled => "canceled",
+                    _ => "unknown"
+                })));
+    }
+
+    internal static void RecordAssistSmith(
+        string stage,
+        ulong actorId,
+        ulong targetId,
+        int cardIndex,
+        string itemId,
+        int upgradeLevel,
+        bool success,
+        string reason) =>
+        Record(
+            DiagnosticEventCode.AssistSmithChanged,
+            facts: new DiagnosticTradeFacts(
+                Location: Location(TradeLocation.RestSite),
+                Stage: SafeStage(stage),
+                ActorId: actorId == 0
+                    ? null
+                    : actorId.ToString(CultureInfo.InvariantCulture),
+                TargetId: targetId == 0
+                    ? null
+                    : targetId.ToString(CultureInfo.InvariantCulture),
+                CardIndex: cardIndex < 0 ? null : Math.Clamp(cardIndex, 0, ushort.MaxValue),
+                ItemId: FeedbackValueSanitizer.ModelId(itemId),
+                UpgradeLevel: Math.Clamp(upgradeLevel, 0, byte.MaxValue),
+                Success: success,
+                Reason: SafeReason(reason)));
+
     internal static void RecordFeedbackRequested() =>
         Record(DiagnosticEventCode.FeedbackRequested, DiagnosticControlId.SendFeedback);
 
@@ -315,6 +392,7 @@ internal static class DiagnosticRecorder
             AvailabilityHandledOccurrences.Clear();
             _sequence = 0;
         }
+        FeedbackContextTracker.ResetForTests();
     }
 
     private static bool ShouldRecordAttempt(int attempt) =>
@@ -345,6 +423,7 @@ internal static class DiagnosticRecorder
         DiagnosticControlState? controlState = null,
         DiagnosticTradeFacts? facts = null)
     {
+        long contextGeneration = FeedbackContextTracker.CaptureCurrent();
         lock (Gate)
         {
             while (Entries.Count >= Capacity)
@@ -356,7 +435,8 @@ internal static class DiagnosticRecorder
                 code,
                 control,
                 controlState,
-                facts));
+                facts,
+                contextGeneration));
         }
     }
 
@@ -405,7 +485,7 @@ internal static class DiagnosticRecorder
         "wrong_location" or "no_available_peer" or "no_other_players" or "host_event" or
         "not_connected" or "already_trading" or "used" or "disconnected" or
         "declined" or "expired" or "invalid_session" or "revision_mismatch" or
-        "player_missing" or "validation_failed" or "apply_failed" or "completed" or
+        "player_missing" or "validation_failed" or "apply_failed" or "result_failed" or "completed" or
         "canceled" => value,
         _ => "other"
     };
@@ -415,6 +495,22 @@ internal static class DiagnosticRecorder
         "pending" or "active" or "committing" or "committed" or "canceled" => value,
         _ => "unknown"
     };
+
+    private static string SafeStage(string value) => value switch
+    {
+        "pending" or "active" or "offer_updated" or "confirmed" or
+        "committing" or "committed" or "canceled" or "snapshot_received" or
+        "commit_received" or "commit_applied" or "commit_failed" or
+        "selected" or "registered" or "request_sent" or "request_pending" or
+        "request_replayed" or "request_received" or "result_broadcast" or
+        "result_received" or "applied" or "failed" or "disconnected" or
+        "reset" => value,
+        _ => "unknown"
+    };
+
+    private static int SafeCount(int value) => Math.Clamp(value, 0, byte.MaxValue);
+
+    private static int SafeGold(int value) => Math.Clamp(value, 0, 1_000_000_000);
 
     private static bool CanReadNetworkConnection()
     {
