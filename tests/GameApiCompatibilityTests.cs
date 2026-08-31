@@ -1,9 +1,37 @@
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Tests;
 
 public sealed class GameApiCompatibilityTests
 {
+    [Fact]
+    public void ProductionAssemblyDoesNotBindVersionSpecificConnectedPeersGetter()
+    {
+        using FileStream stream = File.OpenRead(typeof(GameApiCompatibility).Assembly.Location);
+        using PEReader peReader = new(stream);
+        MetadataReader metadata = peReader.GetMetadataReader();
+        string[] referencedMembers = metadata.MemberReferences
+            .Select(handle => metadata.GetString(metadata.GetMemberReference(handle).Name))
+            .ToArray();
+
+        Assert.DoesNotContain("get_ConnectedPeers", referencedMembers);
+        Assert.Contains("get_ConnectedPeerIds", referencedMembers);
+    }
+
+    [Fact]
+    public void ConnectedPeerLookupMatchesExactPlayerAcrossPartySizes()
+    {
+        Assert.False(GameApiCompatibility.ContainsConnectedPeer([], 22));
+        Assert.True(GameApiCompatibility.ContainsConnectedPeer([22], 22));
+        Assert.False(GameApiCompatibility.ContainsConnectedPeer([22], 33));
+
+        ulong[] threeRemotePeers = [11, 22, 33];
+        Assert.True(GameApiCompatibility.ContainsConnectedPeer(threeRemotePeers, 22));
+        Assert.False(GameApiCompatibility.ContainsConnectedPeer(threeRemotePeers, 44));
+    }
+
     [Fact]
     public void ReadsLegacyPotionCapabilityProperty()
     {

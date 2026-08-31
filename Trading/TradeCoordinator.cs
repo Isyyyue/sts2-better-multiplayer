@@ -597,7 +597,7 @@ internal static class TradeCoordinator
         if (playerId == TradeNetwork.LocalPlayerId)
             return true;
         return RunManager.Instance.NetService is NetHostGameService host &&
-               host.ConnectedPeers.Any(peer => peer.peerId == playerId);
+               GameApiCompatibility.IsHostPeerConnected(host, playerId);
     }
 
     private static ulong CreateSessionId()

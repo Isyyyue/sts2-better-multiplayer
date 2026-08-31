@@ -195,7 +195,7 @@ internal static class PasswordGatePatch
     }
 
     private static bool IsConnected(NetHostGameService host, ulong playerId) =>
-        host.ConnectedPeers.Any(peer => peer.peerId == playerId);
+        GameApiCompatibility.IsHostPeerConnected(host, playerId);
 }
 
 [HarmonyPatch(typeof(RunManager), nameof(RunManager.CleanUp))]

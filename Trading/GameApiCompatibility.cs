@@ -1,10 +1,17 @@
 using System.Reflection;
 using MegaCrit.Sts2.Core.Entities.Players;
+using MegaCrit.Sts2.Core.Multiplayer;
 
 namespace BetterMultiplayer.Trading;
 
 internal static class GameApiCompatibility
 {
+    internal static bool IsHostPeerConnected(NetHostGameService host, ulong playerId) =>
+        ContainsConnectedPeer(host.NetHost?.ConnectedPeerIds, playerId);
+
+    internal static bool ContainsConnectedPeer(IEnumerable<ulong>? connectedPeerIds, ulong playerId) =>
+        connectedPeerIds?.Contains(playerId) == true;
+
     internal static bool CanRemovePotions(Player player) =>
         TryReadBooleanProperty(player, "CanRemovePotions") ??
         TryReadBooleanProperty(player, "CanUseOrRemovePotions") ??

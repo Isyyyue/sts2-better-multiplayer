@@ -73,13 +73,14 @@ public sealed class FeedbackCorrelationTests : IDisposable
         MethodInfo snapshot = Required(tracker.GetMethods(StaticNonPublic)
             .SingleOrDefault(candidate =>
                 candidate.Name == "Snapshot" &&
-                candidate.GetParameters().Length == 0));
+                candidate.GetParameters() is [{ ParameterType: var parameterType }] &&
+                parameterType == typeof(DateTimeOffset)));
 
         object context = CreateContext(PlayerId, LobbyId, FirstReportAt.AddMinutes(-2));
         observe.Invoke(null, [context]);
         RoomSession.Clear();
 
-        object retained = Assert.IsAssignableFrom<object>(snapshot.Invoke(null, null));
+        object retained = Assert.IsAssignableFrom<object>(snapshot.Invoke(null, [FirstReportAt]));
         using JsonDocument payload = CreatePayload(
             retained,
             Guid.Parse("44444444-4444-4444-8444-444444444444"),

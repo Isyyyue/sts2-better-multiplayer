@@ -4,6 +4,7 @@ using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Multiplayer;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Runs;
+using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Diagnostics;
 
@@ -304,7 +305,7 @@ internal static class FeedbackContextTracker
             if (!service.IsConnected)
                 return false;
             if (service is NetHostGameService host)
-                return host.ConnectedPeers.Any(peer => peer.peerId == playerId);
+                return GameApiCompatibility.IsHostPeerConnected(host, playerId);
             return true;
         }
         catch
