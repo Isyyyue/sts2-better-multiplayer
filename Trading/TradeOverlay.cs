@@ -21,8 +21,12 @@ internal sealed class TradeOverlay
         Potion
     }
 
-    private static readonly Color SlotSurface = new("101417");
-    private static readonly Color SelectedSurface = new("29352f");
+    private static readonly Color SlotSurface = new("2a241e");
+    private static readonly Color SelectedSurface = new("4f3b20");
+    private static readonly Color PlayerBandSurface = new("3a2e24");
+    private static readonly Color LocalOfferSurface = new("433722");
+    private static readonly Color RemoteOfferSurface = new("263b47");
+    private static readonly Color RemoteOfferBorder = new("b7a477");
 
     private readonly Control _root;
     private readonly VBoxContainer _body;
@@ -231,7 +235,7 @@ internal sealed class TradeOverlay
             if (available && !used)
                 availableCount++;
 
-            PanelContainer band = UiFactory.Band();
+            PanelContainer band = UiFactory.Band(PlayerBandSurface);
             band.CustomMinimumSize = new Vector2(690, 112);
             HBoxContainer row = new();
             row.AddThemeConstantOverride("separation", 14);
@@ -401,6 +405,14 @@ internal sealed class TradeOverlay
         bool confirmed,
         bool locked)
     {
+        PanelContainer shell = new();
+        shell.AddThemeStyleboxOverride(
+            "panel",
+            UiFactory.PanelStyle(
+                isLocal ? LocalOfferSurface : RemoteOfferSurface,
+                isLocal ? UiFactory.Accent : RemoteOfferBorder,
+                2,
+                8));
         MarginContainer panel = new();
         panel.CustomMinimumSize = new Vector2(0, _location == TradeLocation.RestSite ? 250 : 220);
         panel.AddThemeConstantOverride("margin_left", 18);
@@ -431,7 +443,8 @@ internal sealed class TradeOverlay
         state.HorizontalAlignment = HorizontalAlignment.Center;
         state.CustomMinimumSize = new Vector2(72, 0);
         row.AddChild(state);
-        return panel;
+        shell.AddChild(panel);
+        return shell;
     }
 
     private Control CreateRestOffer(Player player, TradeOffer offer, bool isLocal, bool locked)
