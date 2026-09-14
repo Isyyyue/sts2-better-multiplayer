@@ -194,8 +194,14 @@ internal static class TradeCoordinator
                 Error(senderId, error);
                 return;
             }
-            session.SetGold(senderId, reportedGold);
-            AvailableGold[senderId] = reportedGold;
+            Player? player = RunManager.Instance.State?.GetPlayer(senderId);
+            if (player is null)
+            {
+                Error(senderId, ModText.Token(TextKey.PlayerNotFound));
+                return;
+            }
+            session.SetGold(senderId, player.Gold);
+            AvailableGold[senderId] = session.GoldFor(senderId);
         }
 
         session.Status = TradeSessionStatus.Active;
@@ -227,9 +233,9 @@ internal static class TradeCoordinator
                 Error(senderId, goldError);
                 return;
             }
-            availableGold = reportedGold;
-            session.SetGold(senderId, reportedGold);
-            AvailableGold[senderId] = reportedGold;
+            availableGold = player.Gold;
+            session.SetGold(senderId, player.Gold);
+            AvailableGold[senderId] = player.Gold;
         }
         if (!TradeValidator.TryResolve(player, rawOffer, session.Location, availableGold, out _, out string error))
         {
@@ -242,8 +248,8 @@ internal static class TradeCoordinator
             session.OfferA = offer;
         else
             session.OfferB = offer;
-        session.ConfirmedA = false;
-        session.ConfirmedB = false;
+        session.BumpOfferRevision(senderId);
+        session.SetLocked(senderId, false, 0);
         session.Revision++;
         DiagnosticRecorder.RecordSessionSnapshot(
             session,
@@ -262,7 +268,7 @@ internal static class TradeCoordinator
     {
         if (!TryGetActiveParticipant(senderId, sessionId, out TradeSessionSnapshot? session))
             return;
-        if (revision != session.Revision)
+        if (revision != session.OfferRevisionFor(senderId))
         {
             Error(senderId, ModText.Token(TextKey.OfferChanged));
             BroadcastSnapshot(session);
@@ -281,10 +287,17 @@ internal static class TradeCoordinator
             }
             if (session.GoldFor(senderId) != reportedGold)
             {
-                session.SetGold(senderId, reportedGold);
-                AvailableGold[senderId] = reportedGold;
-                session.ConfirmedA = false;
-                session.ConfirmedB = false;
+                Player? currentPlayer = RunManager.Instance.State?.GetPlayer(senderId);
+                if (currentPlayer is null)
+                {
+                    Error(senderId, ModText.Token(TextKey.PlayerNotFound));
+                    return;
+                }
+                int authoritativeGold = currentPlayer.Gold;
+                session.SetGold(senderId, authoritativeGold);
+                AvailableGold[senderId] = authoritativeGold;
+                session.BumpOfferRevision(senderId);
+                session.SetLocked(senderId, false, 0);
                 session.Revision++;
                 if (confirmed)
                     Error(senderId, ModText.Token(TextKey.GoldBalanceChanged));
@@ -293,10 +306,7 @@ internal static class TradeCoordinator
             }
         }
 
-        if (senderId == session.PlayerA)
-            session.ConfirmedA = confirmed;
-        else
-            session.ConfirmedB = confirmed;
+        session.SetLocked(senderId, confirmed, revision);
         DiagnosticRecorder.RecordSessionSnapshot(
             session,
             "confirmed",
@@ -304,7 +314,7 @@ internal static class TradeCoordinator
             session.OtherPlayer(senderId));
         BroadcastSnapshot(session);
 
-        if (session.ConfirmedA && session.ConfirmedB)
+        if (session.LockedA && session.LockedB)
             TaskHelper.RunSafely(Commit(session));
     }
 
@@ -438,6 +448,13 @@ internal static class TradeCoordinator
     {
         if (session.Status != TradeSessionStatus.Active)
             return;
+        if (session.LockedRevisionA != session.OfferRevisionA ||
+            session.LockedRevisionB != session.OfferRevisionB)
+        {
+            Error(session.PlayerA, ModText.Token(TextKey.OfferChanged));
+            Error(session.PlayerB, ModText.Token(TextKey.OfferChanged));
+            return;
+        }
 
         Player? playerA = RunManager.Instance.State?.GetPlayer(session.PlayerA);
         Player? playerB = RunManager.Instance.State?.GetPlayer(session.PlayerB);
@@ -610,3 +627,4 @@ internal static class TradeCoordinator
         return BitConverter.ToUInt64(bytes);
     }
 }
+

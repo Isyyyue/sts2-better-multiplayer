@@ -5,6 +5,15 @@ namespace BetterMultiplayer.Tests;
 public sealed class TradeGoldInputTests
 {
     [Theory]
+    [InlineData(5, -10, 100, 0)]
+    [InlineData(95, 10, 100, 100)]
+    [InlineData(40, 10, 100, 50)]
+    public void QuickAdjustClampsToAvailableBalance(int current, int delta, int available, int expected)
+    {
+        Assert.Equal(expected, TradeGoldInput.Adjust(current, delta, available));
+    }
+
+    [Theory]
     [InlineData("0", 500, 0)]
     [InlineData("111", 500, 111)]
     [InlineData(" 250 ", 500, 250)]
@@ -26,3 +35,4 @@ public sealed class TradeGoldInputTests
         Assert.NotEmpty(error);
     }
 }
+

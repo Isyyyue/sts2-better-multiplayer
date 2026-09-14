@@ -167,8 +167,17 @@ internal static class PasswordGatePatch
                     PendingPlayers.Remove(senderId);
                     AuthorizedPlayers.Add(senderId);
                     BetterMultiplayerMod.Logger.Info($"Room password verification succeeded for player {senderId}");
-                    AccessTools.Method(typeof(StartRunLobby), "HandleClientLobbyJoinRequestMessage")
-                        .Invoke(lobby, [message, senderId]);
+                    try
+                    {
+                        AccessTools.Method(typeof(StartRunLobby), "HandleClientLobbyJoinRequestMessage")
+                            .Invoke(lobby, [message, senderId]);
+                    }
+                    catch (Exception ex)
+                    {
+                        BetterMultiplayerMod.Logger.Error($"Password-authorized join handler failed for player {senderId}: {ex}");
+                        if (IsConnected(host, senderId))
+                            host.DisconnectClient(senderId, NetError.InvalidJoin, now: true);
+                    }
                     return;
                 }
 
@@ -221,3 +230,4 @@ internal static class TradeDisconnectCleanupPatch
             TradeCoordinator.PlayerDisconnected(playerId);
     }
 }
+

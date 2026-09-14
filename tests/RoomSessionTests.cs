@@ -6,6 +6,12 @@ namespace BetterMultiplayer.Tests;
 public sealed class RoomSessionTests
 {
     [Fact]
+    public void ProtocolVersionIsBumpedForLockingWireLayout()
+    {
+        Assert.Equal("7", RoomSession.ProtocolVersion);
+    }
+
+    [Fact]
     public void CancelPendingClearsUncreatedRoomConfiguration()
     {
         Assert.True(RoomSession.BeginHosting("测试房间", "test-password", out string error));
@@ -27,3 +33,4 @@ public sealed class RoomSessionTests
         Assert.False(RoomSession.HasPending);
     }
 }
+

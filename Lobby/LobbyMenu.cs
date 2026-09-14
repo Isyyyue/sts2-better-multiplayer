@@ -618,7 +618,7 @@ internal sealed class LobbyMenu
     {
         if (!GodotObject.IsInstanceValid(_status))
             return;
-        _status.Text = ModText.Resolve(text);
+        UiFactory.SetText(_status, ModText.Resolve(text));
         _status.Visible = text.Length > 0;
         _status.AddThemeColorOverride("font_color", error ? UiFactory.Danger : UiFactory.TextMuted);
     }
@@ -645,3 +645,4 @@ internal sealed class LobbyMenu
         }
     }
 }
+

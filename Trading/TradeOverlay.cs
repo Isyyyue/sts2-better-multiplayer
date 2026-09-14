@@ -175,6 +175,7 @@ internal sealed class TradeOverlay
 
         if (session.Status == TradeSessionStatus.Active && _selectionType is not null)
         {
+            RenderActive(session);
             RenderSelection(session, _selectionType.Value);
             return;
         }
@@ -538,6 +539,22 @@ internal sealed class TradeOverlay
             }
             _goldInput = gold;
             amount.AddChild(gold);
+            HBoxContainer shortcuts = new() { Alignment = BoxContainer.AlignmentMode.Center };
+            shortcuts.AddThemeConstantOverride("separation", 6);
+            void SetGold(int value)
+            {
+                int clamped = Math.Clamp(value, 0, Math.Max(0, player.Gold));
+                gold.Text = clamped.ToString();
+                _draft.Gold = clamped;
+                QueueDraftUpdate();
+            }
+            Button decrease = UiFactory.Button("−", () => SetGold(TradeGoldInput.Adjust(int.TryParse(gold.Text, out int current) ? current : 0, -10, player.Gold)));
+            Button increase = UiFactory.Button("+", () => SetGold(TradeGoldInput.Adjust(int.TryParse(gold.Text, out int current) ? current : 0, 10, player.Gold)));
+            decrease.CustomMinimumSize = increase.CustomMinimumSize = new Vector2(54, 44);
+            decrease.Disabled = increase.Disabled = locked;
+            shortcuts.AddChild(decrease);
+            shortcuts.AddChild(increase);
+            amount.AddChild(shortcuts);
         }
         else
         {
@@ -908,7 +925,7 @@ internal sealed class TradeOverlay
         TradeNetwork.SendRequest(new ConfirmRequest
         {
             SessionId = session.SessionId,
-            Revision = session.Revision,
+            Revision = session.OfferRevisionFor(TradeNetwork.LocalPlayerId),
             Confirmed = confirmed,
             ReportedGold = LocalGold()
         });
@@ -1006,7 +1023,7 @@ internal sealed class TradeOverlay
     {
         if (!GodotObject.IsInstanceValid(_status))
             return;
-        _status.Text = ModText.Resolve(text);
+        UiFactory.SetText(_status, ModText.Resolve(text));
         _status.AddThemeColorOverride("font_color", error ? UiFactory.Danger : UiFactory.TextMuted);
     }
 
@@ -1163,3 +1180,4 @@ internal sealed class TradeOverlay
         return player?.Gold ?? 0;
     }
 }
+

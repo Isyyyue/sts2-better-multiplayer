@@ -5,6 +5,19 @@ namespace BetterMultiplayer.Tests;
 public sealed class TradeGoldBalanceTests
 {
     [Fact]
+    public void TransactionBalanceUsesAuthoritativePlayerGold()
+    {
+        Assert.Equal(568, TradeTransactionApplier.ResolveAvailableGold(568));
+    }
+
+    [Fact]
+    public void TransactionApplierDoesNotReadClientReportedSnapshotBalances()
+    {
+        Assert.Equal(568, TradeTransactionApplier.ResolveAvailableGold(568, reportedGold: 999_999));
+        Assert.Equal(53, TradeTransactionApplier.ResolveAvailableGold(53, reportedGold: 0));
+    }
+
+    [Fact]
     public void OwnerReportedBalanceOverridesStaleRemoteMirror()
     {
         Assert.True(TradeGoldBalance.TryValidateOffer(568, 150, out _));
@@ -28,4 +41,6 @@ public sealed class TradeGoldBalanceTests
         Assert.Equal(438, first);
         Assert.Equal(183, second);
     }
+
 }
+

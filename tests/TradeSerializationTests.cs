@@ -7,6 +7,41 @@ namespace BetterMultiplayer.Tests;
 
 public sealed class TradeSerializationTests
 {
+    [Fact]
+    public void LockingTracksEachPlayersOfferRevisionIndependently()
+    {
+        TradeSessionSnapshot session = new() { PlayerA = 11, PlayerB = 12 };
+        session.BumpOfferRevision(11);
+        session.BumpOfferRevision(12);
+        session.BumpOfferRevision(12);
+        session.SetLocked(11, true, 1);
+
+        Assert.True(session.IsLocked(11));
+        Assert.False(session.IsLocked(12));
+        Assert.Equal(1, session.OfferRevisionFor(11));
+        Assert.Equal(2, session.OfferRevisionFor(12));
+        Assert.Equal(1, session.LockedRevisionFor(11));
+        Assert.Equal(-1, session.LockedRevisionFor(12));
+    }
+
+    [Fact]
+    public void ChangingOneOfferClearsOnlyThatPlayersLock()
+    {
+        TradeSessionSnapshot session = new() { PlayerA = 11, PlayerB = 12 };
+        session.BumpOfferRevision(11);
+        session.BumpOfferRevision(12);
+        session.SetLocked(11, true, 1);
+        session.SetLocked(12, true, 1);
+
+        session.BumpOfferRevision(12);
+        session.SetLocked(12, false, 0);
+
+        Assert.True(session.IsLocked(11));
+        Assert.False(session.IsLocked(12));
+        Assert.Equal(1, session.LockedRevisionFor(11));
+        Assert.Equal(-1, session.LockedRevisionFor(12));
+    }
+
     [Theory]
     [InlineData(TradeLocation.RestSite)]
     [InlineData(TradeLocation.Merchant)]
@@ -43,6 +78,10 @@ public sealed class TradeSerializationTests
             GoldA = 568,
             GoldB = 53,
             ConfirmedA = true,
+            LockedA = true,
+            OfferRevisionA = 4,
+            OfferRevisionB = 2,
+            LockedRevisionA = 4,
             Status = status,
             Location = location,
             OfferA = new TradeOffer { CardIndices = [1, 4], Gold = 25 },
@@ -59,6 +98,10 @@ public sealed class TradeSerializationTests
         Assert.Equal(53, copy.GoldFor(12));
         Assert.Equal(original.ConfirmedA, copy.ConfirmedA);
         Assert.Equal(original.ConfirmedB, copy.ConfirmedB);
+        Assert.Equal(original.LockedA, copy.LockedA);
+        Assert.Equal(original.OfferRevisionA, copy.OfferRevisionA);
+        Assert.Equal(original.OfferRevisionB, copy.OfferRevisionB);
+        Assert.Equal(original.LockedRevisionA, copy.LockedRevisionA);
         Assert.Equal(status, copy.Status);
         Assert.Equal(location, copy.Location);
         Assert.Equal([1, 4], copy.OfferA.CardIndices);
@@ -93,6 +136,12 @@ public sealed class TradeSerializationTests
         writer.Write(new TradeOffer());
         writer.WriteBool(false);
         writer.WriteBool(false);
+        writer.WriteBool(false);
+        writer.WriteBool(false);
+        writer.WriteInt(0);
+        writer.WriteInt(0);
+        writer.WriteInt(-1);
+        writer.WriteInt(-1);
         writer.WriteByte(byte.MaxValue);
         writer.WriteByte((byte)TradeLocation.RestSite);
         PacketReader reader = new();
@@ -172,3 +221,4 @@ public sealed class TradeSerializationTests
         return reader.Read<T>();
     }
 }
+

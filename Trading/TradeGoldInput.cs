@@ -5,6 +5,11 @@ namespace BetterMultiplayer.Trading;
 
 internal static class TradeGoldInput
 {
+    internal static int Adjust(int current, int delta, int availableGold) =>
+        Math.Clamp(current + delta, 0, Math.Max(0, availableGold));
+
+    internal static int Max(int availableGold) => Math.Max(0, availableGold);
+
     internal static bool TryParse(string text, int availableGold, out int amount, out string error)
     {
         if (!int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out amount))
@@ -22,3 +27,4 @@ internal static class TradeGoldInput
         return true;
     }
 }
+

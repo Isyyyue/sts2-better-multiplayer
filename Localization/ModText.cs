@@ -203,15 +203,15 @@ internal static class ModText
             [TextKey.CancelInvite] = ("取消邀请", "Cancel Invite"),
             [TextKey.TradePlayerLeft] = ("交易玩家已不在当前对局中。", "The other player is no longer in this run."),
             [TextKey.CancelTrade] = ("取消交易", "Cancel Trade"),
-            [TextKey.WithdrawConfirmation] = ("取消确认", "Withdraw Confirmation"),
-            [TextKey.ConfirmTrade] = ("确认交易", "Confirm Trade"),
-            [TextKey.BothConfirmed] = ("双方已确认，正在结算。", "Both players confirmed. Completing the trade..."),
-            [TextKey.WaitingForOtherConfirmation] = ("你已确认，等待对方。", "Confirmed. Waiting for the other player."),
+            [TextKey.WithdrawConfirmation] = ("解锁报价", "Unlock Offer"),
+            [TextKey.ConfirmTrade] = ("锁定报价", "Lock Offer"),
+            [TextKey.BothConfirmed] = ("双方报价已锁定，正在结算。", "Both offers locked. Completing the trade..."),
+            [TextKey.WaitingForOtherConfirmation] = ("你已锁定报价，等待对方。", "Offer locked. Waiting for the other player."),
             [TextKey.SyncingOffer] = ("正在同步报价。", "Syncing offer..."),
-            [TextKey.WaitingForConfirmations] = ("等待双方确认。", "Waiting for both players to confirm."),
+            [TextKey.WaitingForConfirmations] = ("等待双方锁定报价。", "Waiting for both players to lock their offers."),
             [TextKey.YourOffer] = ("你的报价", "Your Offer"),
-            [TextKey.Confirmed] = ("已确认", "Confirmed"),
-            [TextKey.NotConfirmed] = ("未确认", "Not Confirmed"),
+            [TextKey.Confirmed] = ("已锁定", "Locked"),
+            [TextKey.NotConfirmed] = ("未锁定", "Not Locked"),
             [TextKey.GoldOnHand] = ("持有金币：{0}", "Gold on Hand: {0}"),
             [TextKey.CardsCount] = ("卡牌 {0}/{1}", "Cards {0}/{1}"),
             [TextKey.ChooseCard] = ("选择卡牌", "Choose Card"),
@@ -322,3 +322,4 @@ internal static class ModText
         string.Equals(language, "zh_cn", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(language, "zh-hans", StringComparison.OrdinalIgnoreCase);
 }
+

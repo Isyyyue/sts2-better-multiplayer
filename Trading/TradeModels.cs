@@ -85,6 +85,12 @@ public sealed class TradeSessionSnapshot : IPacketSerializable
     public TradeOffer OfferB { get; set; } = new();
     public bool ConfirmedA { get; set; }
     public bool ConfirmedB { get; set; }
+    public bool LockedA { get; set; }
+    public bool LockedB { get; set; }
+    public int OfferRevisionA { get; set; }
+    public int OfferRevisionB { get; set; }
+    public int LockedRevisionA { get; set; } = -1;
+    public int LockedRevisionB { get; set; } = -1;
     public TradeSessionStatus Status { get; set; }
     public TradeLocation Location { get; set; }
 
@@ -104,6 +110,30 @@ public sealed class TradeSessionSnapshot : IPacketSerializable
     }
     public bool IsConfirmed(ulong playerId) => playerId == PlayerA ? ConfirmedA : ConfirmedB;
     public bool IsOtherConfirmed(ulong playerId) => playerId == PlayerA ? ConfirmedB : ConfirmedA;
+    public bool IsLocked(ulong playerId) => playerId == PlayerA ? LockedA : LockedB;
+    public bool IsOtherLocked(ulong playerId) => playerId == PlayerA ? LockedB : LockedA;
+    public int OfferRevisionFor(ulong playerId) => playerId == PlayerA ? OfferRevisionA : OfferRevisionB;
+    public int LockedRevisionFor(ulong playerId) => playerId == PlayerA ? LockedRevisionA : LockedRevisionB;
+    public void BumpOfferRevision(ulong playerId)
+    {
+        if (playerId == PlayerA) OfferRevisionA++;
+        else if (playerId == PlayerB) OfferRevisionB++;
+        else throw new ArgumentOutOfRangeException(nameof(playerId));
+    }
+    public void SetLocked(ulong playerId, bool locked, int revision)
+    {
+        if (playerId == PlayerA)
+        {
+            LockedA = ConfirmedA = locked;
+            LockedRevisionA = locked ? revision : -1;
+        }
+        else if (playerId == PlayerB)
+        {
+            LockedB = ConfirmedB = locked;
+            LockedRevisionB = locked ? revision : -1;
+        }
+        else throw new ArgumentOutOfRangeException(nameof(playerId));
+    }
 
     public TradeSessionSnapshot Clone() => new()
     {
@@ -117,6 +147,12 @@ public sealed class TradeSessionSnapshot : IPacketSerializable
         OfferB = OfferB.Clone(),
         ConfirmedA = ConfirmedA,
         ConfirmedB = ConfirmedB,
+        LockedA = LockedA,
+        LockedB = LockedB,
+        OfferRevisionA = OfferRevisionA,
+        OfferRevisionB = OfferRevisionB,
+        LockedRevisionA = LockedRevisionA,
+        LockedRevisionB = LockedRevisionB,
         Status = Status,
         Location = Location
     };
@@ -131,8 +167,12 @@ public sealed class TradeSessionSnapshot : IPacketSerializable
         writer.WriteInt(GoldB);
         writer.Write(OfferA);
         writer.Write(OfferB);
-        writer.WriteBool(ConfirmedA);
-        writer.WriteBool(ConfirmedB);
+        writer.WriteBool(LockedA || ConfirmedA);
+        writer.WriteBool(LockedB || ConfirmedB);
+        writer.WriteInt(OfferRevisionA);
+        writer.WriteInt(OfferRevisionB);
+        writer.WriteInt(LockedRevisionA);
+        writer.WriteInt(LockedRevisionB);
         TradePacketCodec.WriteStatus(writer, Status);
         TradePacketCodec.WriteLocation(writer, Location);
     }
@@ -147,9 +187,14 @@ public sealed class TradeSessionSnapshot : IPacketSerializable
         GoldB = reader.ReadInt();
         OfferA = reader.Read<TradeOffer>();
         OfferB = reader.Read<TradeOffer>();
-        ConfirmedA = reader.ReadBool();
-        ConfirmedB = reader.ReadBool();
+        LockedA = ConfirmedA = reader.ReadBool();
+        LockedB = ConfirmedB = reader.ReadBool();
+        OfferRevisionA = reader.ReadInt();
+        OfferRevisionB = reader.ReadInt();
+        LockedRevisionA = reader.ReadInt();
+        LockedRevisionB = reader.ReadInt();
         Status = TradePacketCodec.ReadStatus(reader);
         Location = TradePacketCodec.ReadLocation(reader);
     }
 }
+

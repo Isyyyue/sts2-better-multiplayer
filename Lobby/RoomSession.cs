@@ -7,7 +7,7 @@ namespace BetterMultiplayer.Lobby;
 
 internal static class RoomSession
 {
-    internal const string ProtocolVersion = "6";
+    internal const string ProtocolVersion = "7";
     internal const string KeyProtocol = "bettermp.protocol";
     internal const string KeyName = "bettermp.name";
     internal const string KeyLocked = "bettermp.locked";
@@ -100,8 +100,10 @@ internal static class RoomSession
 
     internal static bool VerifyMember(CSteamID lobbyId, ulong memberId)
     {
-        if (ActiveLobbyId != lobbyId.m_SteamID || _active is null)
-            return true;
+        if (_active is null)
+            return false;
+        if (ActiveLobbyId != lobbyId.m_SteamID)
+            return false;
         if (!_active.Locked)
             return true;
 
@@ -136,3 +138,4 @@ internal static class RoomSession
         config = null;
     }
 }
+

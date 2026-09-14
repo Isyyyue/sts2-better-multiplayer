@@ -10,6 +10,12 @@ namespace BetterMultiplayer.Trading;
 
 internal static class TradeTransactionApplier
 {
+    internal static int ResolveAvailableGold(int playerGold) => playerGold;
+
+    // The network snapshot may carry a client-reported balance for diagnostics,
+    // but settlement must always use the authoritative run-state balance.
+    internal static int ResolveAvailableGold(int playerGold, int reportedGold) => playerGold;
+
     private sealed record TransferPayload(
         List<SerializableCard> Cards,
         List<SerializableRelic> Relics,
@@ -35,8 +41,8 @@ internal static class TradeTransactionApplier
             if (playerA is null || playerB is null)
                 throw new InvalidOperationException("Trade participant is missing from the run.");
 
-            int availableGoldA = snapshot.Location == TradeLocation.Merchant ? snapshot.GoldA : playerA.Gold;
-            int availableGoldB = snapshot.Location == TradeLocation.Merchant ? snapshot.GoldB : playerB.Gold;
+            int availableGoldA = ResolveAvailableGold(playerA.Gold, snapshot.GoldA);
+            int availableGoldB = ResolveAvailableGold(playerB.Gold, snapshot.GoldB);
 
             if (!TradeValidator.TryResolvePair(
                     playerA,
@@ -146,3 +152,4 @@ internal static class TradeTransactionApplier
             await PotionCmd.TryToProcure(PotionModel.FromSerializable(serialized), target);
     }
 }
+

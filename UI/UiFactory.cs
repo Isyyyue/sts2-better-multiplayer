@@ -1,4 +1,5 @@
 using Godot;
+using MegaCrit.Sts2.addons.mega_text;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using BetterMultiplayer.Diagnostics;
@@ -274,15 +275,32 @@ internal static class UiFactory
 
     internal static Label Label(string text, int size = 18, Color? color = null)
     {
-        Label label = new()
+        Label label;
+        FontFile? font = GD.Load<FontFile>("res://fonts/kreon_regular.ttf");
+        if (font is not null)
         {
-            Text = text,
-            VerticalAlignment = VerticalAlignment.Center
-        };
+            MegaLabel mega = new();
+            mega.AddThemeFontOverride("font", font);
+            mega.SetTextAutoSize(text);
+            label = mega;
+        }
+        else
+        {
+            label = new Label { Text = text };
+        }
+        label.VerticalAlignment = VerticalAlignment.Center;
         label.AddThemeFontSizeOverride("font_size", size);
         if (color.HasValue)
             label.AddThemeColorOverride("font_color", color.Value);
         return label;
+    }
+
+    internal static void SetText(Label label, string text)
+    {
+        if (label is MegaLabel mega)
+            mega.SetTextAutoSize(text);
+        else
+            label.Text = text;
     }
 
     internal static Button Button(
@@ -494,7 +512,16 @@ internal static class UiFactory
                 _ => _normalStyle
             };
             if (style is not null)
-                _button.AddThemeStyleboxOverride("normal", style);
+            {
+                string slot = state switch
+                {
+                    VisualState.Hover => "hover",
+                    VisualState.Pressed => "pressed",
+                    VisualState.Disabled => "disabled",
+                    _ => "normal"
+                };
+                _button.AddThemeStyleboxOverride(slot, style);
+            }
             SetOfficialPaperButtonState(_button, state);
         }
     }
@@ -542,3 +569,4 @@ internal static class UiFactory
         };
     }
 }
+
