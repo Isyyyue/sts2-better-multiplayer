@@ -281,6 +281,7 @@ internal static class UiFactory
         {
             MegaLabel mega = new();
             mega.AddThemeFontOverride("font", font);
+            mega.AutoSizeEnabled = false;
             mega.SetTextAutoSize(text);
             label = mega;
         }

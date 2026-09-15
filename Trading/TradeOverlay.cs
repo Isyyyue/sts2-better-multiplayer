@@ -175,7 +175,6 @@ internal sealed class TradeOverlay
 
         if (session.Status == TradeSessionStatus.Active && _selectionType is not null)
         {
-            RenderActive(session);
             RenderSelection(session, _selectionType.Value);
             return;
         }

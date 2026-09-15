@@ -453,6 +453,7 @@ internal static class TradeCoordinator
         {
             Error(session.PlayerA, ModText.Token(TextKey.OfferChanged));
             Error(session.PlayerB, ModText.Token(TextKey.OfferChanged));
+            EndSession(session, TradeSessionStatus.Canceled);
             return;
         }
 

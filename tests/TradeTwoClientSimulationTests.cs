@@ -152,6 +152,42 @@ public sealed class TradeTwoClientSimulationTests : IDisposable
         Assert.True(run.NetService.BroadcastCount > 0);
     }
 
+    [Fact]
+    public async Task CommitRevisionMismatchCancelsAndRemovesSession()
+    {
+        const ulong sessionId = 6060;
+        using RunManagerSimulationScope run = new(HostPlayerId, ClientPlayerId);
+        TradeCoordinator.BeginLocation(TradeLocation.Merchant, ownerId: 606);
+
+        TradeSessionSnapshot session = new()
+        {
+            SessionId = sessionId,
+            PlayerA = HostPlayerId,
+            PlayerB = ClientPlayerId,
+            Status = TradeSessionStatus.Active,
+            Location = TradeLocation.Merchant,
+            OfferRevisionA = 2,
+            OfferRevisionB = 1,
+            LockedRevisionA = 1,
+            LockedRevisionB = 1
+        };
+        FieldInfo sessionsField = typeof(TradeCoordinator).GetField(
+            "Sessions",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var sessions = Assert.IsAssignableFrom<Dictionary<ulong, TradeSessionSnapshot>>(
+            sessionsField.GetValue(null));
+        sessions[sessionId] = session;
+
+        MethodInfo commit = typeof(TradeCoordinator).GetMethod(
+            "Commit",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        Task commitTask = Assert.IsAssignableFrom<Task>(commit.Invoke(null, [session]));
+        await commitTask;
+
+        Assert.Equal(TradeSessionStatus.Canceled, session.Status);
+        Assert.DoesNotContain(sessionId, sessions.Keys);
+    }
+
     private static void BeginMerchant(ulong ownerId) =>
         TradeCoordinator.BeginLocation(TradeLocation.Merchant, ownerId);
 
