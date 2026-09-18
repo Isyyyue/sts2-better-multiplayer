@@ -354,8 +354,19 @@ internal sealed class TradeOverlay
             return;
         }
 
-        VBoxContainer board = new() { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        board.AddThemeConstantOverride("separation", 5);
+        // 参照 Together in Spire 的布局：两个玩家左右分屏，中间一条竖线，
+        // 而不是上下堆叠。这样用的是屏幕【宽度】——选择区因此有地方站，
+        // 不会像 0.6.0 那样被挤爆（当时纵向要放两块 250px 面板）。
+        //
+        // 宽度账（改布局时必须重算，0.6.0 就是没算高度账才出的 bug）：
+        //   屏幕 1920 − 安全区 48 − 内容边距 80 = body 1792
+        //   中线 2 + 两侧分隔 32 ⇒ 每块面板 879
+        //   面板内容 = 165(身份) + 16(分隔) + 631(卡牌 3×145+20=455，+16，+遗物药水 160)
+        //              + 36(内边距) = 848 ✅ 余 31
+        // 高度账：body ≈ 872；board 250 + 按钮行 52 + 分隔 12 = 314 ✅
+        //         展开选择区时再加 网格/标题/按钮 ≈ 365 ⇒ 679，仍有富余 ✅
+        HBoxContainer board = new() { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        board.AddThemeConstantOverride("separation", TradeLayout.BoardSeparation);
         board.AddChild(CreateOfferPanel(
             localPlayer,
             _draft,
@@ -363,7 +374,7 @@ internal sealed class TradeOverlay
             isLocal: true,
             confirmed: session.IsConfirmed(localId),
             locked: session.IsConfirmed(localId) || _offerUpdatePending));
-        board.AddChild(CreateExchangeDivider());
+        board.AddChild(CreateMidline());
         board.AddChild(CreateOfferPanel(
             otherPlayer,
             session.OfferFor(otherPlayer.NetId),
@@ -423,7 +434,7 @@ internal sealed class TradeOverlay
         row.AddThemeConstantOverride("separation", 16);
         panel.AddChild(row);
 
-        VBoxContainer identity = new() { CustomMinimumSize = new Vector2(210, 0) };
+        VBoxContainer identity = new() { CustomMinimumSize = new Vector2(TradeLayout.IdentityWidth, 0) };
         identity.AddChild(UiFactory.Label(isLocal ? ModText.Get(TextKey.YourOffer) : PlayerName(player.NetId), 24));
         identity.AddChild(UiFactory.Label(
             ModText.Get(confirmed ? TextKey.Confirmed : TextKey.NotConfirmed),
@@ -439,10 +450,9 @@ internal sealed class TradeOverlay
         offerContent.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         row.AddChild(offerContent);
 
-        Label state = UiFactory.Label(confirmed ? "✓" : "…", 44, confirmed ? UiFactory.Good : UiFactory.TextMuted);
-        state.HorizontalAlignment = HorizontalAlignment.Center;
-        state.CustomMinimumSize = new Vector2(72, 0);
-        row.AddChild(state);
+        // 原先这里还有一个 72px 宽的 ✓/… 状态列。改成左右分屏后宽度不够
+        // （两块面板并排时每块只有 879px），而身份列已经写着"已锁定/未锁定"，
+        // 这一列是冗余的，所以去掉。
         shell.AddChild(panel);
         return shell;
     }
@@ -458,7 +468,7 @@ internal sealed class TradeOverlay
             17,
             UiFactory.TextMuted));
         HBoxContainer cardSlots = new();
-        cardSlots.AddThemeConstantOverride("separation", 10);
+        cardSlots.AddThemeConstantOverride("separation", TradeLayout.CardTileSeparation);
         for (int slot = 0; slot < TradeValidator.MaxCards; slot++)
         {
             int? index = slot < offer.CardIndices.Count ? offer.CardIndices[slot] : null;
@@ -468,14 +478,14 @@ internal sealed class TradeOverlay
             cardSlots.AddChild(CreateItemTile(
                 card is null ? ModText.Get(TextKey.ChooseCard) : card.Title,
                 card is null ? null : TryGetTexture(() => card.Portrait),
-                new Vector2(170, 190),
+                new Vector2(TradeLayout.CardTileWidth, 165),
                 isLocal && !locked ? () => OpenSelection(OfferItemType.Card) : null,
                 selected: card is not null));
         }
         cards.AddChild(cardSlots);
         content.AddChild(cards);
 
-        VBoxContainer extras = new() { CustomMinimumSize = new Vector2(180, 0) };
+        VBoxContainer extras = new() { CustomMinimumSize = new Vector2(TradeLayout.ExtraColumnWidth, 0) };
         int? relicIndex = offer.RelicIndices.Count > 0 ? offer.RelicIndices[0] : null;
         RelicModel? relic = relicIndex.HasValue && relicIndex.Value >= 0 && relicIndex.Value < player.Relics.Count
             ? player.Relics[relicIndex.Value]
@@ -484,7 +494,7 @@ internal sealed class TradeOverlay
         extras.AddChild(CreateItemTile(
             relic is null ? ModText.Get(TextKey.ChooseRelic) : relic.Title.GetFormattedText(),
             relic is null ? null : TryGetTexture(() => relic.Icon),
-            new Vector2(175, 82),
+            new Vector2(150, 74),
             isLocal && !locked ? () => OpenSelection(OfferItemType.Relic) : null,
             selected: relic is not null));
 
@@ -494,7 +504,7 @@ internal sealed class TradeOverlay
         extras.AddChild(CreateItemTile(
             potion is null ? ModText.Get(TextKey.ChoosePotion) : potion.Title.GetFormattedText(),
             potion is null ? null : TryGetTexture(() => potion.Image),
-            new Vector2(175, 82),
+            new Vector2(150, 74),
             isLocal && !locked ? () => OpenSelection(OfferItemType.Potion) : null,
             selected: potion is not null));
         content.AddChild(extras);
@@ -565,18 +575,17 @@ internal sealed class TradeOverlay
         return content;
     }
 
-    private Control CreateExchangeDivider()
+    /// <summary>
+    /// 左右分屏的中线。TIS 的交易界面就是一条贯穿全屏的竖线
+    /// （对应它的素材 TradingScreenMidLine.png）。
+    /// </summary>
+    private static Control CreateMidline()
     {
-        HBoxContainer divider = new() { Alignment = BoxContainer.AlignmentMode.Center };
-        divider.CustomMinimumSize = new Vector2(0, 62);
-        HSeparator left = new() { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        HSeparator right = new() { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        divider.AddChild(left);
-        divider.AddChild(CreateIcon(
-            _location == TradeLocation.RestSite ? TradeAssets.RestTradeIcon : TradeAssets.GoldTradeIcon,
-            new Vector2(92, 58)));
-        divider.AddChild(right);
-        return divider;
+        return new VSeparator
+        {
+            CustomMinimumSize = new Vector2(TradeLayout.MidlineWidth, 0),
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
     }
 
     private void OpenSelection(OfferItemType type)

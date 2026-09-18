@@ -11,6 +11,15 @@ internal static class UiFactory
 {
     private const string OfficialPaperButtonBackgroundName = "BetterMultiplayerOfficialPaper";
 
+    /// <summary>
+    /// overlay 外层安全区的左右边距。这些数字参与交易界面的宽度预算，
+    /// 改之前先看 <see cref="Trading.TradeLayout"/> 与 TradeLayoutTests。
+    /// </summary>
+    internal const int OverlaySafeAreaMargin = 24;
+
+    /// <summary>overlay 内容区的左右边距。同样参与宽度预算。</summary>
+    internal const int OverlayContentMargin = 40;
+
     internal static readonly Color Background = new("111416");
     internal static readonly Color Surface = new("202529");
     internal static readonly Color Border = new("485159");
@@ -149,10 +158,10 @@ internal static class UiFactory
 
         MarginContainer safeArea = new();
         safeArea.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        safeArea.AddThemeConstantOverride("margin_left", 56);
-        safeArea.AddThemeConstantOverride("margin_right", 56);
-        safeArea.AddThemeConstantOverride("margin_top", 34);
-        safeArea.AddThemeConstantOverride("margin_bottom", 34);
+        safeArea.AddThemeConstantOverride("margin_left", OverlaySafeAreaMargin);
+        safeArea.AddThemeConstantOverride("margin_right", OverlaySafeAreaMargin);
+        safeArea.AddThemeConstantOverride("margin_top", 20);
+        safeArea.AddThemeConstantOverride("margin_bottom", 20);
         root.AddChild(safeArea);
 
         Control paper = new()
@@ -169,10 +178,10 @@ internal static class UiFactory
 
         MarginContainer contentMargin = new();
         contentMargin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        contentMargin.AddThemeConstantOverride("margin_left", 104);
-        contentMargin.AddThemeConstantOverride("margin_right", 104);
-        contentMargin.AddThemeConstantOverride("margin_top", 68);
-        contentMargin.AddThemeConstantOverride("margin_bottom", 58);
+        contentMargin.AddThemeConstantOverride("margin_left", OverlayContentMargin);
+        contentMargin.AddThemeConstantOverride("margin_right", OverlayContentMargin);
+        contentMargin.AddThemeConstantOverride("margin_top", 36);
+        contentMargin.AddThemeConstantOverride("margin_bottom", 30);
         paper.AddChild(contentMargin);
 
         VBoxContainer frame = new();
@@ -569,5 +578,67 @@ internal static class UiFactory
             ContentMarginBottom = 10
         };
     }
+
+    // ==================================================================
+    // 官方九宫格样式
+    //
+    // PanelStyle 是纯色 + 均匀描边 + 统一圆角的 StyleBoxFlat——看着就是
+    // 程序画的（所谓"AI 感"）。官方 UI 用的是带纹理的九宫格：边缘不规则、
+    // 有手绘质感。下面从 ui_atlas.sprites 加载官方切片当样式底。
+    //
+    // ★★ 九宫格边距是效果好坏的关键，而且必须在游戏里看着调 ★★
+    //    猜错的后果不是"还是像 AI"，而是按钮/面板被拉伸变形，比原来更糟。
+    //    参考值：popup_vertical（石板）用的是 76/82/76/82。
+    //    调下面这三个常量即可，不用动其他代码。
+    // ==================================================================
+
+    /// <summary>按钮类切片的九宫格边距——左右。</summary>
+    private const int OfficialButtonMarginX = 22;
+
+    /// <summary>按钮类切片的九宫格边距——上下。</summary>
+    private const int OfficialButtonMarginY = 16;
+
+    /// <summary>面板类切片的九宫格边距。</summary>
+    private const int OfficialPanelMargin = 48;
+
+    /// <summary>
+    /// 从官方 UI 图集加载一个切片，做成九宫格样式。
+    /// 加载失败返回 null，调用方回落到 <see cref="PanelStyle"/>——
+    /// 游戏更新改了路径时，界面难看但不至于崩。
+    /// </summary>
+    internal static StyleBoxTexture? OfficialSliceStyle(
+        string sliceName,
+        Color? modulate = null,
+        int marginX = OfficialButtonMarginX,
+        int marginY = OfficialButtonMarginY)
+    {
+        Texture2D? texture = GD.Load<Texture2D>(
+            $"res://images/atlases/ui_atlas.sprites/{sliceName}");
+        if (texture is null)
+            return null;
+
+        return new StyleBoxTexture
+        {
+            Texture = texture,
+            TextureMarginLeft = marginX,
+            TextureMarginTop = marginY,
+            TextureMarginRight = marginX,
+            TextureMarginBottom = marginY,
+            ModulateColor = modulate ?? Colors.White,
+            AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch,
+            AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch
+        };
+    }
+
+    /// <summary>取官方切片；拿不到就回落到原来的纯色样式。</summary>
+    internal static StyleBox OfficialSliceOr(
+        string sliceName,
+        Color background,
+        Color border,
+        Color? modulate = null,
+        int marginX = OfficialButtonMarginX,
+        int marginY = OfficialButtonMarginY) =>
+        (StyleBox?)OfficialSliceStyle(sliceName, modulate, marginX, marginY)
+        ?? PanelStyle(background, border, 1, 5);
 }
 
