@@ -1,1 +1,7 @@
+# 统一行尾。不加这条的话，仓库索引里会混着 CRLF 和 LF，
+# 每次编辑那些 CRLF 文件都会产生整文件重写（看起来像改动了几百行，
+# 实际只有几行——用 git diff -w 才能看出来）。
+# 规范成 LF 后，工作副本的行尾由 core.autocrlf 决定。
+* text=auto
+
 tools/*.ps1 linguist-detectable=false
