@@ -1,5 +1,7 @@
+using System;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Models;
+using BetterMultiplayer.Config;
 using BetterMultiplayer.Localization;
 
 namespace BetterMultiplayer.Trading;
@@ -105,7 +107,28 @@ internal static class TradeValidator
 
     internal static bool CanTradeCard(CardModel card) => !BoundCards.Contains(card.GetType().Name);
 
-    internal static bool CanTradeRelic(RelicModel relic) => relic.IsTradable;
+    // 原版按 RelicModel.IsTradable 判定。玩家在设置里逐条放开限制后，
+    // 这里补上玩家设置这一层。两处调用点（TryResolve 与 TradeOverlay 的
+    // 选择格子）都走这个函数，所以只需要改这一处。
+    //
+    // 兜底：配置类继承自 BaseLib 的 SimpleModConfig，而清单里声明的 BaseLib
+    // 最低版本（v3.3.7）早于本模组实际验证过的版本。若玩家装的 BaseLib 没有
+    // 这套 Config API，加载该类型会抛 TypeLoadException。这里捕获后回落到
+    // 原版行为——宁可设置页不可用，也不能让交易整个报错。
+    internal static bool CanTradeRelic(RelicModel relic)
+    {
+        if (relic.IsTradable)
+            return true;
+
+        try
+        {
+            return BetterMultiplayerConfig.AllowsRelic(relic);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     internal static bool TryResolvePair(
         Player playerA,

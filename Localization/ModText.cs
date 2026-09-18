@@ -135,7 +135,23 @@ internal enum TextKey
     AssistSmithPlayerDisconnected,
     AssistSmithOtherPlayersOnly,
     AssistSmithDeckChanged,
-    AssistSmithCardNotUpgradable
+    AssistSmithCardNotUpgradable,
+
+    SettingRelicRaritySection,
+    SettingRelicStateSection,
+    SettingRelicSideEffectSection,
+    SettingFeedbackSection,
+    SettingUnlockRelicTrading,
+    SettingAllowStarterRelics,
+    SettingAllowEventRelics,
+    SettingAllowAncientRelics,
+    SettingAllowUsedUpRelics,
+    SettingAllowMeltedRelics,
+    SettingAllowUponPickupRelics,
+    SettingAllowPetRelics,
+    SettingAllowUponPickupRelicsTip,
+    SettingAllowPetRelicsTip,
+    SettingSendFeedbackButton
 }
 
 internal static class ModText
@@ -277,7 +293,37 @@ internal static class ModText
             [TextKey.AssistSmithPlayerDisconnected] = ("玩家已断开连接。", "The player disconnected."),
             [TextKey.AssistSmithOtherPlayersOnly] = ("只能帮助其他队友锻造。", "You can only Smith for another player."),
             [TextKey.AssistSmithDeckChanged] = ("队友的牌组已经发生变化，请重新选择。", "That player's deck changed. Choose a card again."),
-            [TextKey.AssistSmithCardNotUpgradable] = ("这张牌现在无法升级。", "That card can no longer be upgraded.")
+            [TextKey.AssistSmithCardNotUpgradable] = ("这张牌现在无法升级。", "That card can no longer be upgraded."),
+
+            [TextKey.SettingRelicRaritySection] = ("放宽范围 · 稀有度", "Unlock · By Rarity"),
+            [TextKey.SettingRelicStateSection] = ("放宽范围 · 遗物状态", "Unlock · By Relic State"),
+            [TextKey.SettingRelicSideEffectSection] = ("放宽范围 · 会重复触发效果", "Unlock · Repeats On-Gain Effects"),
+            [TextKey.SettingFeedbackSection] = ("反馈", "Feedback"),
+            [TextKey.SettingUnlockRelicTrading] = (
+                "解除遗物交易限制",
+                "Lift relic trading restrictions"),
+            [TextKey.SettingAllowStarterRelics] = ("允许交易起始遗物", "Allow trading starter relics"),
+            [TextKey.SettingAllowEventRelics] = ("允许交易事件遗物", "Allow trading event relics"),
+            [TextKey.SettingAllowAncientRelics] = ("允许交易远古遗物", "Allow trading ancient relics"),
+            [TextKey.SettingAllowUsedUpRelics] = (
+                "允许交易「已用尽」遗物（状态会一并转移）",
+                "Allow trading used-up relics (state carries over)"),
+            [TextKey.SettingAllowMeltedRelics] = (
+                "允许交易「已融化」遗物（状态会一并转移）",
+                "Allow trading melted relics (state carries over)"),
+            [TextKey.SettingAllowUponPickupRelics] = (
+                "允许交易「拾取时生效」类遗物",
+                "Allow trading relics with on-pickup effects"),
+            [TextKey.SettingAllowPetRelics] = (
+                "允许交易「召唤宠物」类遗物",
+                "Allow trading pet-summoning relics"),
+            [TextKey.SettingAllowUponPickupRelicsTip] = (
+                "该遗物的「获得时」效果会被重放一次。例如古钱币会给接收方再发一次金币。",
+                "The relic's on-obtain effect runs again for the receiver. For example, Old Coin grants its gold a second time."),
+            [TextKey.SettingAllowPetRelicsTip] = (
+                "会重复召唤宠物。目前只有「幼年异鸟」和「佩尔的士兵」两个遗物属于这一类。",
+                "Summons a second pet. Only Byrdpip and Pael's Legion fall into this category."),
+            [TextKey.SettingSendFeedbackButton] = ("发送反馈", "Send Feedback")
         };
 
     internal static event Action? LanguageChanged;

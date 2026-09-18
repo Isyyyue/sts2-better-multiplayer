@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Localization;
 using BetterMultiplayer.Localization;
@@ -33,5 +34,16 @@ internal static class TradeLocalizationLanguagePatch
     {
         ModText.SetLanguage(language);
         TradeLocalization.Install(__instance, language);
+
+        // 设置页的文案。独立 try/catch：旧版 BaseLib 没有 Config API 时
+        // 这里会抛 TypeLoadException，不能让它影响交易本身的本地化。
+        try
+        {
+            BetterMultiplayer.Config.ConfigLocalization.Install(__instance, language);
+        }
+        catch (Exception ex)
+        {
+            BetterMultiplayerMod.Logger.Warn($"Failed to install config localization: {ex.Message}");
+        }
     }
 }
