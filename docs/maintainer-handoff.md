@@ -20,6 +20,8 @@
 - `Diagnostics/`：玩家主动提交的固定结构诊断、多人关联信息、交易/锻牌时序和 Sentry 传输。
 - `Security/`：PBKDF2/HMAC 密码证明。
 - `Trading/`：Mod 消息与 Steam 中继、房主权威交易状态机、篝火/商店补丁和交易界面。
+- `Trading/SharedGoldSync.cs`：「惊喜模式」的金币共享补丁。挂在 `Player.Gold` 的 setter 上（金币唯一写入口），由房主把全队设成同一余额并广播 `SharedGoldEvent`，客户端只被动接受。**设置页上刻意不写任何说明——那是功能要求，不是漏写**；动手前先看 `BetterMultiplayerConfig` 里那段注释和 `tests/SurpriseModeTests.cs`。
+- `Config/BetterMultiplayerConfig.cs`：遗物交易范围。**注意它默认就偏离原版**——效果干净、只因稀有度（起始/事件/先古）被挡的遗物一律可交易（`CanTrade` 的第二条，不占设置项）；带副作用的（重复触发获得时效果 / 带状态 / 附带宠物，共 62 个）由总开关 `UnlockRelicTrading` 放行。设置页**刻意不分类**：历史上试过按稀有度和按功能分，两种都会让标签名不副实（详见 `RelicTradingConfigTests` 的类注释）。
 - `UI/`：Godot 控件创建工具。
 - `Localization/`：大厅相关的中英文文本。
 - `Trading/GameApiCompatibility.cs`：默认版与 public-beta 的 API 兼容层。

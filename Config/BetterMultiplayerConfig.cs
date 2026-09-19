@@ -24,74 +24,55 @@ namespace BetterMultiplayer.Config;
 internal sealed class BetterMultiplayerConfig : SimpleModConfig
 {
     // ------------------------------------------------------------------
-    // 总开关
+    // 总开关（设置页上唯一的分项）
+    //
+    // 关着 = 原版行为，只有一件事例外：效果干净的遗物本来就不该被挡（见 CanTrade）。
+    // 打开 = 剩下那批带副作用的也一并放行。
+    //
+    // ★ 设置页【不做分类】。试过按稀有度分、按功能分、按"交易它会出什么事"分，
+    //   结论都是：分类一旦和归类规则对不上，标签就会骗人
+    //   （比如「允许交易先古遗物」实际只放行三分之二的先古遗物）。
+    //   与其让玩家研究分类，不如一个开关解决。
     //
     // 刻意【不加】ConfigSection：BaseLib 的 SectionTracker 在分组名为 null 时
     // 不新建分组，直接把这一行挂到根容器。加了反而会被一个只有一行的折叠标题
     // 包住。总开关应该独立于下面的分组，始终可见。
     // ------------------------------------------------------------------
 
+    [ConfigHoverTip]
     public static bool UnlockRelicTrading { get; set; }
 
     // ------------------------------------------------------------------
-    // 无副作用：稀有度类
-    // ------------------------------------------------------------------
-
-    [ConfigSection("RelicRarity")]
-    [ConfigVisibleIf(nameof(UnlockRelicTrading), true)]
-    public static bool AllowStarterRelics { get; set; }
-
-    [ConfigSection("RelicRarity")]
-    [ConfigVisibleIf(nameof(UnlockRelicTrading), true)]
-    public static bool AllowEventRelics { get; set; }
-
-    [ConfigSection("RelicRarity")]
-    [ConfigVisibleIf(nameof(UnlockRelicTrading), true)]
-    public static bool AllowAncientRelics { get; set; }
-
-    // ------------------------------------------------------------------
-    // 无副作用：状态类
+    // 惊喜模式
     //
-    // 遗物状态通过引擎的 [SavedProperty] 机制随交易无损传递
-    // （RelicModel.ToSerializable -> SavedProperties.From -> Props.Fill），
-    // 接收方拿到的就是前主人那个状态，不会被"洗白"。
-    // 例：ToyBox 的 CombatsSeen、LizardTail 的 WasUsed 都带 [SavedProperty]，
-    //     基类的 IsMelted 本身也是 [SavedProperty]。
-    // ------------------------------------------------------------------
-
-    [ConfigSection("RelicState")]
-    [ConfigVisibleIf(nameof(UnlockRelicTrading), true)]
-    public static bool AllowUsedUpRelics { get; set; }
-
-    [ConfigSection("RelicState")]
-    [ConfigVisibleIf(nameof(UnlockRelicTrading), true)]
-    public static bool AllowMeltedRelics { get; set; }
-
-    // ------------------------------------------------------------------
-    // 会重复触发效果
+    // ★ 刻意【什么都不解释】：没有 ConfigHoverTip、没有 ConfigSection，
+    //   文案里也不写说明。开了之后会发生什么，玩家得自己发现。
+    //   改动这一项时请保持"零解释"——那是功能的一部分，不是漏写。
     //
-    // RelicCmd.Obtain 内部会执行 await relic.AfterObtained()，
-    // 也就是"获得时"逻辑会被重放一次。默认关闭。
+    // 声明位置也必须留在这里：BaseLib 的 SectionTracker 碰到"没有分组的属性"
+    // 时只是不新建分组，行会被挂到【当前容器】。所以放到第一个分组之后的话，
+    // 这一行会被塞进那个分组里，而不是留在根容器。
     // ------------------------------------------------------------------
 
-    [ConfigSection("RelicSideEffect")]
-    [ConfigVisibleIf(nameof(UnlockRelicTrading), true)]
-    [ConfigHoverTip]
-    public static bool AllowUponPickupRelics { get; set; }
-
-    [ConfigSection("RelicSideEffect")]
-    [ConfigVisibleIf(nameof(UnlockRelicTrading), true)]
-    [ConfigHoverTip]
-    public static bool AllowPetRelics { get; set; }
+    public static bool SurpriseSharedGold { get; set; }
 
     // ------------------------------------------------------------------
     // 反馈
+    //
+    // 悬停提示保留了大厅按钮上那段隐私说明（上传了什么、不含什么）。
+    // 大厅那个入口已经去掉，这里成了唯一的说明位置，不能省。
     // ------------------------------------------------------------------
 
     [ConfigSection("Feedback")]
     [ConfigButton("SendFeedbackButton")]
+    [ConfigHoverTip]
     public static void SendFeedback(NConfigButton button)
     {
+        // 这一行是给"点了没反应"排查用的：先确认点击有没有进来。
+        // 配合 DiagnosticFeedbackService 那两条结果日志，
+        // 能把"没点到"和"发了但没提示"区分开。
+        BetterMultiplayerMod.Logger.Info("Diagnostic feedback button pressed.");
+
         if (button is null || !button.IsEnabled)
             return;
 
@@ -102,9 +83,17 @@ internal sealed class BetterMultiplayerConfig : SimpleModConfig
     {
         // NClickableControl 没有 Disabled 属性，只有 IsEnabled / Disable() / Enable()。
         button.Disable();
+
+        FeedbackSendResult result;
         try
         {
-            await DiagnosticFeedbackService.SendAsync(button);
+            result = await DiagnosticFeedbackService.SendAsync(button);
+        }
+        catch (Exception ex)
+        {
+            BetterMultiplayerMod.Logger.Warn(
+                $"Diagnostic feedback failed unexpectedly: {ex.GetType().Name}: {ex.Message}");
+            result = new FeedbackSendResult(FeedbackSendStatus.NetworkFailed, string.Empty);
         }
         finally
         {
@@ -112,6 +101,11 @@ internal sealed class BetterMultiplayerConfig : SimpleModConfig
             if (GodotObject.IsInstanceValid(button))
                 button.Enable();
         }
+
+        // ★ 必须给玩家一个看得见的结果。
+        //   SendAsync 只把结果写进日志，不弹东西的话，
+        //   点击在界面上就是"毫无反应"——这正是之前那个 bug。
+        await FeedbackResultPopup.ShowAsync(result);
     }
 
     // ------------------------------------------------------------------
@@ -119,38 +113,34 @@ internal sealed class BetterMultiplayerConfig : SimpleModConfig
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// 判断一个被原版标记为不可交易的遗物，是否因为玩家设置而允许交易。
+    /// 这个遗物现在能不能交易。三条，命中任一就放行：
     ///
-    /// 逐条对照 RelicModel.IsTradable 的否决条件——原版是"任一条件命中即禁止"，
-    /// 这里改成"每一条都必须被对应的开关单独放开"。
-    /// 所以像「幼年异鸟」（事件稀有度 + 召唤宠物 + 拾取时生效）需要三个开关同时打开。
+    ///   1. 原版允许（<see cref="RelicModel.IsTradable"/>）——本模组从不收紧，只放开。
+    ///   2. 效果干净——被挡纯粹是因为稀有度是 起始 / 事件 / 先古。
+    ///      原版 IsTradable 的最后一条只看稀有度、和效果无关，所以这类遗物
+    ///      交易起来没有任何副作用，直接当正常遗物处理，不占设置项。
+    ///      **这是本模组唯一一处【默认】偏离原版的地方。**
+    ///   3. 总开关打开——剩下那批带副作用的（会重复触发获得时效果 / 带状态 /
+    ///      附带宠物，共 62 个）一并放行。
     /// </summary>
-    internal static bool AllowsRelic(RelicModel relic)
-    {
-        if (!UnlockRelicTrading)
-            return false;
+    internal static bool CanTrade(RelicModel relic) =>
+        relic.IsTradable || !HasSideEffect(relic) || UnlockRelicTrading;
 
-        if (relic.IsUsedUp && !AllowUsedUpRelics)
-            return false;
-        if (relic.HasUponPickupEffect && !AllowUponPickupRelics)
-            return false;
-        if (relic.IsMelted && !AllowMeltedRelics)
-            return false;
-
-        // 原版 IsTradable 只检查 SpawnsPets。但「佩尔的士兵」(PaelsLegion)
-        // 只设了 AddsPet，没设 SpawnsPets —— 它仅靠 Ancient 稀有度被挡住。
-        // 本开关的语义是"召唤宠物类"，所以两个标志都要算，
-        // 否则玩家只打开稀有度开关就会让它溜过去，而它的 AfterObtained
-        // 会再次 SummonPet，造成宠物重复。
-        if ((relic.SpawnsPets || relic.AddsPet) && !AllowPetRelics)
-            return false;
-
-        return relic.Rarity switch
-        {
-            RelicRarity.Starter => AllowStarterRelics,
-            RelicRarity.Event => AllowEventRelics,
-            RelicRarity.Ancient => AllowAncientRelics,
-            _ => true
-        };
-    }
+    /// <summary>
+    /// 交易这个遗物会不会出问题。
+    ///
+    /// 这五条正好对应原版 IsTradable 里"看效果"的那四条，交易时都有代价：
+    ///   - 附带宠物 / 拾取时生效：RelicCmd.Obtain 会重放 AfterObtained()
+    ///   - 已用尽 / 已融化：遗物带着一个状态，会一起传过去
+    ///
+    /// 注意 AddsPet 必须算进来：原版只查 SpawnsPets，而「佩尔的士兵」只设了
+    /// AddsPet，它靠 Ancient 稀有度才没漏过去。不算进来的话它会被判成
+    /// "效果干净"而默认放行，AfterObtained 再次 AddPet 造成宠物重复。
+    /// </summary>
+    private static bool HasSideEffect(RelicModel relic) =>
+        relic.SpawnsPets ||
+        relic.AddsPet ||
+        relic.HasUponPickupEffect ||
+        relic.IsUsedUp ||
+        relic.IsMelted;
 }

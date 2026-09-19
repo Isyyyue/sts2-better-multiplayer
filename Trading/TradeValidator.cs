@@ -115,18 +115,18 @@ internal static class TradeValidator
     // 最低版本（v3.3.7）早于本模组实际验证过的版本。若玩家装的 BaseLib 没有
     // 这套 Config API，加载该类型会抛 TypeLoadException。这里捕获后回落到
     // 原版行为——宁可设置页不可用，也不能让交易整个报错。
+    // 回落目标是 relic.IsTradable 而不是 false：
+    // 总开关关着时 CanTrade 本来就等于 IsTradable，
+    // 所以"配置读不到"和"总开关没开"应该表现一致。
     internal static bool CanTradeRelic(RelicModel relic)
     {
-        if (relic.IsTradable)
-            return true;
-
         try
         {
-            return BetterMultiplayerConfig.AllowsRelic(relic);
+            return BetterMultiplayerConfig.CanTrade(relic);
         }
         catch (Exception)
         {
-            return false;
+            return relic.IsTradable;
         }
     }
 

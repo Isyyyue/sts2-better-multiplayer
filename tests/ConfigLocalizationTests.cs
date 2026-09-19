@@ -123,21 +123,45 @@ public sealed class ConfigLocalizationTests
         Assert.Empty(missing);
     }
 
-    /// <summary>带悬停提示的项必须同时有 .hover.title 和 .hover.desc，缺一个整条提示都不显示。</summary>
+    /// <summary>
+    /// 按钮行的【行标题】取自方法名，和 ButtonLabelKey 是两个不同的键。
+    /// 只写后者的话行标题会静默回落成原始方法名，界面上显示 "SendFeedback"。
+    /// </summary>
     [Fact]
-    public void HoverTippedPropertiesHaveBothKeys()
+    public void EveryButtonHasRowLabel()
+    {
+        Dictionary<string, string> entries = Entries();
+        List<string> missing = [];
+
+        foreach (MethodInfo method in ButtonMethods())
+        {
+            string key = ConfigLocalization.Prefix + StringHelper.Slugify(method.Name) + ".title";
+            if (!entries.ContainsKey(key))
+                missing.Add($"{method.Name} -> {key}");
+        }
+
+        Assert.Empty(missing);
+    }
+
+    /// <summary>
+    /// 带悬停提示的项必须同时有 .hover.title 和 .hover.desc，缺一个整条提示都不显示。
+    /// 属性和 [ConfigButton] 方法都要查——两者的悬停键都取自行名
+    /// （NConfigOptionRow.AddHoverTip 用的是行节点的 Name）。
+    /// </summary>
+    [Fact]
+    public void HoverTippedMembersHaveBothKeys()
     {
         Dictionary<string, string> entries = Entries();
         List<string> missing = [];
         int tipped = 0;
 
-        foreach (PropertyInfo property in ConfigProperties())
+        foreach (MemberInfo member in ConfigProperties().Concat<MemberInfo>(ButtonMethods()))
         {
-            if (property.GetCustomAttribute<ConfigHoverTipAttribute>() is not { Enabled: true })
+            if (member.GetCustomAttribute<ConfigHoverTipAttribute>() is not { Enabled: true })
                 continue;
 
             tipped++;
-            string slug = ConfigLocalization.Prefix + StringHelper.Slugify(property.Name);
+            string slug = ConfigLocalization.Prefix + StringHelper.Slugify(member.Name);
             if (!entries.ContainsKey(slug + ".hover.title"))
                 missing.Add(slug + ".hover.title");
             if (!entries.ContainsKey(slug + ".hover.desc"))
@@ -203,6 +227,15 @@ public sealed class ConfigLocalizationTests
         {
             ConfigButtonAttribute attribute = method.GetCustomAttribute<ConfigButtonAttribute>()!;
             expected.Add(ConfigLocalization.Prefix + StringHelper.Slugify(attribute.ButtonLabelKey) + ".title");
+
+            // 行标题取自方法名，不是 ButtonLabelKey。
+            string rowSlug = ConfigLocalization.Prefix + StringHelper.Slugify(method.Name);
+            expected.Add(rowSlug + ".title");
+            if (method.GetCustomAttribute<ConfigHoverTipAttribute>() is { Enabled: true })
+            {
+                expected.Add(rowSlug + ".hover.title");
+                expected.Add(rowSlug + ".hover.desc");
+            }
         }
 
         List<string> orphans = entries.Keys.Where(k => !expected.Contains(k)).ToList();

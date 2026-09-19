@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BetterMultiplayer.Diagnostics;
 using BetterMultiplayer.Localization;
 using MegaCrit.Sts2.Core.Localization;
 
@@ -34,41 +35,58 @@ internal static class ConfigLocalization
     internal static Dictionary<string, string> BuildEntries(string language) => new()
     {
         // 分组标题（总开关没有分组，见 BetterMultiplayerConfig 的说明）
-        [Prefix + "RELIC_RARITY.title"] = Text(language, TextKey.SettingRelicRaritySection),
-        [Prefix + "RELIC_STATE.title"] = Text(language, TextKey.SettingRelicStateSection),
-        [Prefix + "RELIC_SIDE_EFFECT.title"] = Text(language, TextKey.SettingRelicSideEffectSection),
         [Prefix + "FEEDBACK.title"] = Text(language, TextKey.SettingFeedbackSection),
 
-        // 总开关
+        // 总开关。设置页上【不分类】，所以这里只有这一个分项。
+        // 悬停说明替代了原来那些分类说明——分类被砍掉了，但"打开后会放开什么"
+        // 仍然得讲清楚，不然玩家不知道自己在开什么。
         [Prefix + "UNLOCK_RELIC_TRADING.title"] = Text(language, TextKey.SettingUnlockRelicTrading),
+        [Prefix + "UNLOCK_RELIC_TRADING.hover.title"] =
+            Text(language, TextKey.SettingUnlockRelicTrading),
+        [Prefix + "UNLOCK_RELIC_TRADING.hover.desc"] =
+            Text(language, TextKey.SettingUnlockRelicTradingTip),
 
-        // 稀有度类
-        [Prefix + "ALLOW_STARTER_RELICS.title"] = Text(language, TextKey.SettingAllowStarterRelics),
-        [Prefix + "ALLOW_EVENT_RELICS.title"] = Text(language, TextKey.SettingAllowEventRelics),
-        [Prefix + "ALLOW_ANCIENT_RELICS.title"] = Text(language, TextKey.SettingAllowAncientRelics),
+        // 惊喜模式。刻意没有分组标题键，也没有 .hover.* 键——
+        // 「不给任何解释」是功能的一部分，加回去会被 SurpriseModeTests 挡下。
+        [Prefix + "SURPRISE_SHARED_GOLD.title"] = Text(language, TextKey.SettingSurpriseMode),
 
-        // 状态类
-        [Prefix + "ALLOW_USED_UP_RELICS.title"] = Text(language, TextKey.SettingAllowUsedUpRelics),
-        [Prefix + "ALLOW_MELTED_RELICS.title"] = Text(language, TextKey.SettingAllowMeltedRelics),
-
-        // 会重复触发效果（带悬停说明）
-        [Prefix + "ALLOW_UPON_PICKUP_RELICS.title"] = Text(language, TextKey.SettingAllowUponPickupRelics),
-        [Prefix + "ALLOW_UPON_PICKUP_RELICS.hover.title"] =
-            Text(language, TextKey.SettingAllowUponPickupRelics),
-        [Prefix + "ALLOW_UPON_PICKUP_RELICS.hover.desc"] =
-            Text(language, TextKey.SettingAllowUponPickupRelicsTip),
-
-        [Prefix + "ALLOW_PET_RELICS.title"] = Text(language, TextKey.SettingAllowPetRelics),
-        [Prefix + "ALLOW_PET_RELICS.hover.title"] = Text(language, TextKey.SettingAllowPetRelics),
-        [Prefix + "ALLOW_PET_RELICS.hover.desc"] = Text(language, TextKey.SettingAllowPetRelicsTip),
-
-        // 按钮
+        // 反馈按钮行。BaseLib 的按钮行有【两个】标题键：
+        //   行标题   Slugify(方法名)           -> SEND_FEEDBACK.title
+        //   按钮文字 Slugify(ButtonLabelKey)  -> SEND_FEEDBACK_BUTTON.title
+        // 只写后者的话，行标题会静默回落成原始方法名，界面上直接显示 "SendFeedback"。
+        // 悬停键同样取自方法名（NConfigOptionRow.AddHoverTip 用的是行名）。
+        [Prefix + "SEND_FEEDBACK.title"] = Text(language, TextKey.SendFeedback),
+        [Prefix + "SEND_FEEDBACK.hover.title"] = Text(language, TextKey.SendFeedback),
+        [Prefix + "SEND_FEEDBACK.hover.desc"] = Text(language, TextKey.SendFeedbackTooltip),
         [Prefix + "SEND_FEEDBACK_BUTTON.title"] = Text(language, TextKey.SettingSendFeedbackButton)
+    };
+
+    /// <summary>
+    /// 反馈结果弹窗的文案。刻意和 <see cref="BuildEntries"/> 分开：
+    ///
+    ///   1. 这组键不是从配置属性推导出来的，混进去会让
+    ///      ConfigLocalizationTests.NoOrphanEntries 把它们当成孤儿键报错。
+    ///   2. 它们的"覆盖率"判据不一样——那边是"每个配置项都有键"，
+    ///      这边是"每种发送状态都有键"（见 FeedbackEntriesCoverEveryStatus）。
+    /// </summary>
+    internal static Dictionary<string, string> BuildFeedbackEntries(string language) => new()
+    {
+        [Prefix + "FEEDBACK_RESULT.header"] = Text(language, TextKey.FeedbackResultHeader),
+        [Prefix + "FEEDBACK_RESULT.ok"] = Text(language, TextKey.FeedbackResultOk),
+        [Prefix + FeedbackResultPopup.KeyFor(FeedbackSendStatus.Submitted) + ".body"] =
+            Text(language, TextKey.FeedbackSubmitted),
+        [Prefix + FeedbackResultPopup.KeyFor(FeedbackSendStatus.Busy) + ".body"] =
+            Text(language, TextKey.FeedbackBusy),
+        [Prefix + FeedbackResultPopup.KeyFor(FeedbackSendStatus.RateLimited) + ".body"] =
+            Text(language, TextKey.FeedbackRateLimited),
+        [Prefix + FeedbackResultPopup.KeyFor(FeedbackSendStatus.NetworkFailed) + ".body"] =
+            Text(language, TextKey.FeedbackFailed)
     };
 
     internal static void Install(LocManager locManager, string language)
     {
         locManager.GetTable(Table).MergeWith(BuildEntries(language));
+        locManager.GetTable(Table).MergeWith(BuildFeedbackEntries(language));
     }
 
     private static string Text(string language, TextKey key) =>

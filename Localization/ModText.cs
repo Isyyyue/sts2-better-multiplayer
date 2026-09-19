@@ -13,11 +13,8 @@ internal enum TextKey
     CreateRoomDescription,
     SendFeedback,
     SendFeedbackTooltip,
-    SendingFeedback,
-    FeedbackSubmitted,
-    FeedbackFailed,
-    FeedbackBusy,
-    FeedbackRateLimited,
+    SettingsEntryLabel,
+    SettingsEntryButton,
     RoomNamePlaceholder,
     RoomPasswordPlaceholder,
     RequiredPasswordPlaceholder,
@@ -137,21 +134,17 @@ internal enum TextKey
     AssistSmithDeckChanged,
     AssistSmithCardNotUpgradable,
 
-    SettingRelicRaritySection,
-    SettingRelicStateSection,
-    SettingRelicSideEffectSection,
     SettingFeedbackSection,
     SettingUnlockRelicTrading,
-    SettingAllowStarterRelics,
-    SettingAllowEventRelics,
-    SettingAllowAncientRelics,
-    SettingAllowUsedUpRelics,
-    SettingAllowMeltedRelics,
-    SettingAllowUponPickupRelics,
-    SettingAllowPetRelics,
-    SettingAllowUponPickupRelicsTip,
-    SettingAllowPetRelicsTip,
-    SettingSendFeedbackButton
+    SettingUnlockRelicTradingTip,
+    SettingSurpriseMode,
+    SettingSendFeedbackButton,
+    FeedbackSubmitted,
+    FeedbackBusy,
+    FeedbackRateLimited,
+    FeedbackFailed,
+    FeedbackResultHeader,
+    FeedbackResultOk
 }
 
 internal static class ModText
@@ -169,13 +162,10 @@ internal static class ModText
             [TextKey.Create] = ("创建", "Create"),
             [TextKey.JoinRoomDescription] = ("通过房间名称和密码联机", "Enter a room name and password"),
             [TextKey.CreateRoomDescription] = ("创建房间并选择官方游戏模式", "Create a room, then choose a game mode"),
-            [TextKey.SendFeedback] = ("发送反馈", "Send Feedback"),
+            [TextKey.SendFeedback] = ("发送诊断反馈", "Send Diagnostic Feedback"),
             [TextKey.SendFeedbackTooltip] = ("主动上传本局诊断：平台账号与大厅 ID、参与者角色、交易和锻牌时序，以及本机 Mod ID 与版本。\n不含昵称、房名、密码、IP、本机路径、截图、存档、原始日志或输入文本", "Manually upload session diagnostics: platform account and lobby IDs, participant characters, trade and smith timing, and this device's mod IDs and versions.\nNo names, room names, passwords, IPs, local paths, screenshots, saves, raw logs, or entered text"),
-            [TextKey.SendingFeedback] = ("正在提交诊断反馈……", "Submitting diagnostic feedback..."),
-            [TextKey.FeedbackSubmitted] = ("反馈已提交。编号：{0}", "Feedback submitted. Report: {0}"),
-            [TextKey.FeedbackFailed] = ("反馈发送失败，请检查网络后重试。", "Feedback could not be sent. Check your connection and try again."),
-            [TextKey.FeedbackBusy] = ("已有一份反馈正在发送。", "Feedback is already being submitted."),
-            [TextKey.FeedbackRateLimited] = ("反馈发送过于频繁，请稍后重试。", "Too many reports were sent. Try again later."),
+            [TextKey.SettingsEntryLabel] = ("BetterMultiplayer", "BetterMultiplayer"),
+            [TextKey.SettingsEntryButton] = ("打开设置", "Open Settings"),
             [TextKey.RoomNamePlaceholder] = ("输入房间名称", "Enter room name"),
             [TextKey.RoomPasswordPlaceholder] = ("输入房间密码", "Enter room password"),
             [TextKey.RequiredPasswordPlaceholder] = ("必须设置密码", "Password required"),
@@ -295,35 +285,34 @@ internal static class ModText
             [TextKey.AssistSmithDeckChanged] = ("队友的牌组已经发生变化，请重新选择。", "That player's deck changed. Choose a card again."),
             [TextKey.AssistSmithCardNotUpgradable] = ("这张牌现在无法升级。", "That card can no longer be upgraded."),
 
-            [TextKey.SettingRelicRaritySection] = ("放宽范围 · 稀有度", "Unlock · By Rarity"),
-            [TextKey.SettingRelicStateSection] = ("放宽范围 · 遗物状态", "Unlock · By Relic State"),
-            [TextKey.SettingRelicSideEffectSection] = ("放宽范围 · 会重复触发效果", "Unlock · Repeats On-Gain Effects"),
             [TextKey.SettingFeedbackSection] = ("反馈", "Feedback"),
+            // 总开关。设置页上不分类，所以只有这一个分项，
+            // 打开后放开的是那批带副作用的（62 个）。
             [TextKey.SettingUnlockRelicTrading] = (
                 "解除遗物交易限制",
                 "Lift relic trading restrictions"),
-            [TextKey.SettingAllowStarterRelics] = ("允许交易起始遗物", "Allow trading starter relics"),
-            [TextKey.SettingAllowEventRelics] = ("允许交易事件遗物", "Allow trading event relics"),
-            [TextKey.SettingAllowAncientRelics] = ("允许交易远古遗物", "Allow trading ancient relics"),
-            [TextKey.SettingAllowUsedUpRelics] = (
-                "允许交易「已用尽」遗物（状态会一并转移）",
-                "Allow trading used-up relics (state carries over)"),
-            [TextKey.SettingAllowMeltedRelics] = (
-                "允许交易「已融化」遗物（状态会一并转移）",
-                "Allow trading melted relics (state carries over)"),
-            [TextKey.SettingAllowUponPickupRelics] = (
-                "允许交易「拾取时生效」类遗物",
-                "Allow trading relics with on-pickup effects"),
-            [TextKey.SettingAllowPetRelics] = (
-                "允许交易「召唤宠物」类遗物",
-                "Allow trading pet-summoning relics"),
-            [TextKey.SettingAllowUponPickupRelicsTip] = (
-                "该遗物的「获得时」效果会被重放一次。例如古钱币会给接收方再发一次金币。",
-                "The relic's on-obtain effect runs again for the receiver. For example, Old Coin grants its gold a second time."),
-            [TextKey.SettingAllowPetRelicsTip] = (
-                "会重复召唤宠物。目前只有「幼年异鸟」和「佩尔的士兵」两个遗物属于这一类。",
-                "Summons a second pet. Only Byrdpip and Pael's Legion fall into this category."),
-            [TextKey.SettingSendFeedbackButton] = ("发送反馈", "Send Feedback")
+            [TextKey.SettingUnlockRelicTradingTip] = (
+                "效果干净的遗物本来就一直能交易。打开这一项，会额外放行剩下那些带副作用的：\n· 会重复触发「获得时」效果的（交易后接收方会再吃一次，例如古钱币再发一次金币）\n· 带状态的（已用尽 / 已融化，状态会一并转移）\n· 附带宠物的（交易会再给一只）",
+                "Relics with no side effects are always tradable. Turn this on to also allow the rest:\n· those whose on-gain effect replays (the receiver triggers it again, e.g. Old Coin grants its gold twice)\n· those carrying a state (used up / melted, which transfers with the relic)\n· those that come with a pet (trading grants a second one)"),
+            // 惊喜模式：刻意只给名字。任何补充说明都会毁掉这个功能。
+            [TextKey.SettingSurpriseMode] = ("惊喜模式", "Surprise Mode"),
+            [TextKey.SettingSendFeedbackButton] = ("反馈", "Send"),
+            // 反馈结果弹窗。设置页上的反馈按钮原来点完什么都不显示，
+            // 表现就是"点了没反应"——这组文案是补上的可见反馈。
+            [TextKey.FeedbackSubmitted] = (
+                "反馈已提交，感谢。",
+                "Feedback submitted. Thank you."),
+            [TextKey.FeedbackBusy] = (
+                "已有一份反馈正在发送。",
+                "A report is already being submitted."),
+            [TextKey.FeedbackRateLimited] = (
+                "反馈发送过于频繁，请稍后重试。",
+                "Too many reports were sent. Try again later."),
+            [TextKey.FeedbackFailed] = (
+                "反馈发送失败，请检查网络后重试。",
+                "Feedback could not be sent. Check your connection and try again."),
+            [TextKey.FeedbackResultHeader] = ("诊断反馈", "Diagnostic feedback"),
+            [TextKey.FeedbackResultOk] = ("好", "OK")
         };
 
     internal static event Action? LanguageChanged;
