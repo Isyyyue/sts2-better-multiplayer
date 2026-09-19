@@ -354,34 +354,37 @@ internal sealed class TradeOverlay
             return;
         }
 
-        // 参照 Together in Spire 的布局：两个玩家左右分屏，中间一条竖线，
-        // 而不是上下堆叠。这样用的是屏幕【宽度】——选择区因此有地方站，
-        // 不会像 0.6.0 那样被挤爆（当时纵向要放两块 250px 面板）。
-        //
-        // 宽度账（改布局时必须重算，0.6.0 就是没算高度账才出的 bug）：
-        //   屏幕 1920 − 安全区 48 − 内容边距 80 = body 1792
-        //   中线 2 + 两侧分隔 32 ⇒ 每块面板 879
-        //   面板内容 = 165(身份) + 16(分隔) + 631(卡牌 3×145+20=455，+16，+遗物药水 160)
-        //              + 36(内边距) = 848 ✅ 余 31
-        // 高度账：body ≈ 872；board 250 + 按钮行 52 + 分隔 12 = 314 ✅
-        //         展开选择区时再加 网格/标题/按钮 ≈ 365 ⇒ 679，仍有富余 ✅
-        HBoxContainer board = new() { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        // Each player gets a full-height column. The offer itself is split into
+        // dedicated rows so every item type has a stable, obvious hit area.
+        HBoxContainer board = new()
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
         board.AddThemeConstantOverride("separation", TradeLayout.BoardSeparation);
-        board.AddChild(CreateOfferPanel(
+
+        Control localPanel = CreateOfferPanel(
             localPlayer,
             _draft,
             session.GoldFor(localPlayer.NetId),
             isLocal: true,
             confirmed: session.IsConfirmed(localId),
-            locked: session.IsConfirmed(localId) || _offerUpdatePending));
+            locked: session.IsConfirmed(localId) || _offerUpdatePending);
+        localPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        localPanel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        board.AddChild(localPanel);
         board.AddChild(CreateMidline());
-        board.AddChild(CreateOfferPanel(
+
+        Control remotePanel = CreateOfferPanel(
             otherPlayer,
             session.OfferFor(otherPlayer.NetId),
             session.GoldFor(otherPlayer.NetId),
             isLocal: false,
             confirmed: session.IsConfirmed(otherPlayer.NetId),
-            locked: true));
+            locked: true);
+        remotePanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        remotePanel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        board.AddChild(remotePanel);
         _body.AddChild(board);
 
         HBoxContainer actions = new() { Alignment = BoxContainer.AlignmentMode.End };
@@ -407,7 +410,6 @@ internal sealed class TradeOverlay
         string error = TradeStateStore.LastError;
         SetStatus(error.Length > 0 ? error : stateText, error.Length > 0);
     }
-
     private Control CreateOfferPanel(
         Player player,
         TradeOffer offer,
@@ -416,58 +418,83 @@ internal sealed class TradeOverlay
         bool confirmed,
         bool locked)
     {
-        PanelContainer shell = new();
-        shell.AddThemeStyleboxOverride(
-            "panel",
-            UiFactory.PanelStyle(
-                isLocal ? LocalOfferSurface : RemoteOfferSurface,
-                isLocal ? UiFactory.Accent : RemoteOfferBorder,
-                2,
-                8));
-        MarginContainer panel = new();
-        panel.CustomMinimumSize = new Vector2(0, _location == TradeLocation.RestSite ? 250 : 220);
-        panel.AddThemeConstantOverride("margin_left", 18);
-        panel.AddThemeConstantOverride("margin_right", 18);
-        panel.AddThemeConstantOverride("margin_top", 10);
-        panel.AddThemeConstantOverride("margin_bottom", 10);
-        HBoxContainer row = new();
-        row.AddThemeConstantOverride("separation", 16);
-        panel.AddChild(row);
-
-        VBoxContainer identity = new() { CustomMinimumSize = new Vector2(TradeLayout.IdentityWidth, 0) };
-        identity.AddChild(UiFactory.Label(isLocal ? ModText.Get(TextKey.YourOffer) : PlayerName(player.NetId), 24));
-        identity.AddChild(UiFactory.Label(
-            ModText.Get(confirmed ? TextKey.Confirmed : TextKey.NotConfirmed),
-            18,
-            confirmed ? UiFactory.Good : UiFactory.TextMuted));
-        if (_location == TradeLocation.Merchant)
-            identity.AddChild(UiFactory.Label(ModText.Get(TextKey.GoldOnHand, availableGold), 17, UiFactory.TextMuted));
-        row.AddChild(identity);
+        VBoxContainer panel = new()
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(
+                0,
+                _location == TradeLocation.RestSite
+                    ? TradeLayout.RestOfferMinHeight
+                    : TradeLayout.GoldOfferMinHeight)
+        };
+        panel.AddThemeConstantOverride("separation", TradeLayout.PanelSeparation);
+        panel.AddChild(CreatePlayerHeader(player, availableGold, isLocal, confirmed));
 
         Control offerContent = _location == TradeLocation.RestSite
             ? CreateRestOffer(player, offer, isLocal, locked)
             : CreateGoldOffer(player, offer, isLocal, locked);
         offerContent.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        row.AddChild(offerContent);
+        offerContent.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        panel.AddChild(offerContent);
+        return panel;
+    }
 
-        // 原先这里还有一个 72px 宽的 ✓/… 状态列。改成左右分屏后宽度不够
-        // （两块面板并排时每块只有 879px），而身份列已经写着"已锁定/未锁定"，
-        // 这一列是冗余的，所以去掉。
-        shell.AddChild(panel);
-        return shell;
+    private Control CreatePlayerHeader(
+        Player player,
+        int availableGold,
+        bool isLocal,
+        bool confirmed)
+    {
+        HBoxContainer header = new()
+        {
+            CustomMinimumSize = new Vector2(0, TradeLayout.PlayerHeaderHeight)
+        };
+
+        Label identity = UiFactory.Label(
+            isLocal ? ModText.Get(TextKey.YourOffer) : PlayerName(player.NetId),
+            25,
+            isLocal ? UiFactory.Accent : RemoteOfferBorder);
+        identity.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        identity.VerticalAlignment = VerticalAlignment.Center;
+        header.AddChild(identity);
+
+        VBoxContainer details = new()
+        {
+            Alignment = BoxContainer.AlignmentMode.Center
+        };
+        details.AddChild(UiFactory.Label(
+            ModText.Get(confirmed ? TextKey.Confirmed : TextKey.NotConfirmed),
+            17,
+            confirmed ? UiFactory.Good : UiFactory.TextMuted));
+        if (_location == TradeLocation.Merchant)
+        {
+            details.AddChild(UiFactory.Label(
+                ModText.Get(TextKey.GoldOnHand, availableGold),
+                16,
+                UiFactory.TextMuted));
+        }
+        header.AddChild(details);
+        return header;
     }
 
     private Control CreateRestOffer(Player player, TradeOffer offer, bool isLocal, bool locked)
     {
-        HBoxContainer content = new();
-        content.AddThemeConstantOverride("separation", 18);
+        VBoxContainer content = new()
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
+        content.AddThemeConstantOverride("separation", TradeLayout.RowSeparation);
 
-        VBoxContainer cards = new() { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        cards.AddChild(UiFactory.Label(
-            ModText.Get(TextKey.CardsCount, offer.CardIndices.Count, TradeValidator.MaxCards),
-            17,
-            UiFactory.TextMuted));
-        HBoxContainer cardSlots = new();
+        PanelContainer cards = CreateOfferRow(isLocal, out HBoxContainer cardContent);
+        cardContent.AddChild(CreateRowLabel(
+            ModText.Get(TextKey.CardsCount, offer.CardIndices.Count, TradeValidator.MaxCards)));
+        HBoxContainer cardSlots = new()
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            Alignment = BoxContainer.AlignmentMode.Center
+        };
         cardSlots.AddThemeConstantOverride("separation", TradeLayout.CardTileSeparation);
         for (int slot = 0; slot < TradeValidator.MaxCards; slot++)
         {
@@ -475,60 +502,126 @@ internal sealed class TradeOverlay
             CardModel? card = index.HasValue && index.Value >= 0 && index.Value < player.Deck.Cards.Count
                 ? player.Deck.Cards[index.Value]
                 : null;
-            cardSlots.AddChild(CreateItemTile(
+            Button cardTile = CreateItemTile(
                 card is null ? ModText.Get(TextKey.ChooseCard) : card.Title,
                 card is null ? null : TryGetTexture(() => card.Portrait),
-                new Vector2(TradeLayout.CardTileWidth, 165),
+                new Vector2(TradeLayout.CardTileWidth, TradeLayout.CardTileHeight),
                 isLocal && !locked ? () => OpenSelection(OfferItemType.Card) : null,
-                selected: card is not null));
+                selected: card is not null);
+            cardTile.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            cardSlots.AddChild(cardTile);
         }
-        cards.AddChild(cardSlots);
+        cardContent.AddChild(cardSlots);
         content.AddChild(cards);
 
-        VBoxContainer extras = new() { CustomMinimumSize = new Vector2(TradeLayout.ExtraColumnWidth, 0) };
         int? relicIndex = offer.RelicIndices.Count > 0 ? offer.RelicIndices[0] : null;
         RelicModel? relic = relicIndex.HasValue && relicIndex.Value >= 0 && relicIndex.Value < player.Relics.Count
             ? player.Relics[relicIndex.Value]
             : null;
-        extras.AddChild(UiFactory.Label(ModText.Get(TextKey.Relic), 17, UiFactory.TextMuted));
-        extras.AddChild(CreateItemTile(
+        content.AddChild(CreateSingleItemRow(
+            ModText.Get(TextKey.Relic),
             relic is null ? ModText.Get(TextKey.ChooseRelic) : relic.Title.GetFormattedText(),
             relic is null ? null : TryGetTexture(() => relic.Icon),
-            new Vector2(150, 74),
             isLocal && !locked ? () => OpenSelection(OfferItemType.Relic) : null,
-            selected: relic is not null));
+            isLocal));
 
         int? potionIndex = offer.PotionSlotIndices.Count > 0 ? offer.PotionSlotIndices[0] : null;
         PotionModel? potion = potionIndex.HasValue ? player.GetPotionAtSlotIndex(potionIndex.Value) : null;
-        extras.AddChild(UiFactory.Label(ModText.Get(TextKey.Potion), 17, UiFactory.TextMuted));
-        extras.AddChild(CreateItemTile(
+        content.AddChild(CreateSingleItemRow(
+            ModText.Get(TextKey.Potion),
             potion is null ? ModText.Get(TextKey.ChoosePotion) : potion.Title.GetFormattedText(),
             potion is null ? null : TryGetTexture(() => potion.Image),
-            new Vector2(150, 74),
             isLocal && !locked ? () => OpenSelection(OfferItemType.Potion) : null,
-            selected: potion is not null));
-        content.AddChild(extras);
+            isLocal));
         return content;
+    }
+
+    private PanelContainer CreateSingleItemRow(
+        string label,
+        string title,
+        Texture2D? texture,
+        Action? onPressed,
+        bool isLocal)
+    {
+        PanelContainer row = CreateOfferRow(isLocal, out HBoxContainer content);
+        content.AddChild(CreateRowLabel(label));
+        Button tile = CreateItemTile(
+            title,
+            texture,
+            new Vector2(TradeLayout.ExtraTileWidth, TradeLayout.ExtraTileHeight),
+            onPressed,
+            selected: texture is not null);
+        content.AddChild(tile);
+        content.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        return row;
+    }
+
+    private static Label CreateRowLabel(string text)
+    {
+        Label label = UiFactory.Label(text, 17, UiFactory.TextMuted);
+        label.CustomMinimumSize = new Vector2(TradeLayout.RowLabelWidth, 0);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        return label;
+    }
+
+    private PanelContainer CreateOfferRow(
+        bool isLocal,
+        out HBoxContainer content,
+        int height = -1)
+    {
+        PanelContainer shell = new()
+        {
+            CustomMinimumSize = new Vector2(
+                0,
+                height > 0 ? height : TradeLayout.OfferRowHeight),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        shell.AddThemeStyleboxOverride(
+            "panel",
+            UiFactory.PanelStyle(
+                isLocal ? LocalOfferSurface : RemoteOfferSurface,
+                isLocal ? UiFactory.Accent : RemoteOfferBorder,
+                1,
+                4));
+
+        MarginContainer margin = new();
+        margin.AddThemeConstantOverride("margin_left", TradeLayout.PanelPadding / 2);
+        margin.AddThemeConstantOverride("margin_right", TradeLayout.PanelPadding / 2);
+        margin.AddThemeConstantOverride("margin_top", 8);
+        margin.AddThemeConstantOverride("margin_bottom", 8);
+        content = new HBoxContainer();
+        content.AddThemeConstantOverride("separation", TradeLayout.RowLabelSeparation);
+        margin.AddChild(content);
+        shell.AddChild(margin);
+        return shell;
     }
 
     private Control CreateGoldOffer(Player player, TradeOffer offer, bool isLocal, bool locked)
     {
-        HBoxContainer content = new() { Alignment = BoxContainer.AlignmentMode.Center };
-        content.AddThemeConstantOverride("separation", 28);
-        content.AddChild(CreateIcon(TradeAssets.GoldTradeIcon, new Vector2(210, 158)));
+        PanelContainer row = CreateOfferRow(
+            isLocal,
+            out HBoxContainer content,
+            TradeLayout.GoldRowHeight);
+        content.AddChild(CreateRowLabel(
+            ModText.Get(isLocal ? TextKey.GoldYouOffer : TextKey.GoldTheyOffer)));
+        content.AddChild(CreateIcon(
+            TradeAssets.GoldTradeIcon,
+            new Vector2(TradeLayout.GoldIconWidth, TradeLayout.GoldIconHeight)));
 
-        VBoxContainer amount = new() { CustomMinimumSize = new Vector2(330, 0) };
-        amount.AddChild(UiFactory.Label(
-            ModText.Get(isLocal ? TextKey.GoldYouOffer : TextKey.GoldTheyOffer),
-            20,
-            UiFactory.TextMuted));
+        VBoxContainer amount = new()
+        {
+            CustomMinimumSize = new Vector2(TradeLayout.GoldInputWidth, 0),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            Alignment = BoxContainer.AlignmentMode.Center
+        };
         if (isLocal)
         {
             LineEdit gold = UiFactory.LineEdit(ModText.Get(TextKey.GoldAmountPlaceholder), maxLength: 10);
             gold.Text = _draft.Gold.ToString();
             gold.Editable = !locked;
-            gold.CustomMinimumSize = new Vector2(300, 74);
-            gold.AddThemeFontSizeOverride("font_size", 34);
+            gold.CustomMinimumSize = new Vector2(TradeLayout.GoldInputWidth, 58);
+            gold.AddThemeFontSizeOverride("font_size", 30);
             gold.Alignment = HorizontalAlignment.Center;
             if (!locked)
             {
@@ -557,22 +650,37 @@ internal sealed class TradeOverlay
                 _draft.Gold = clamped;
                 QueueDraftUpdate();
             }
-            Button decrease = UiFactory.Button("−", () => SetGold(TradeGoldInput.Adjust(int.TryParse(gold.Text, out int current) ? current : 0, -10, player.Gold)));
-            Button increase = UiFactory.Button("+", () => SetGold(TradeGoldInput.Adjust(int.TryParse(gold.Text, out int current) ? current : 0, 10, player.Gold)));
+            Button decrease = UiFactory.Button(
+                "−",
+                () => SetGold(TradeGoldInput.Adjust(
+                    int.TryParse(gold.Text, out int current) ? current : 0,
+                    -10,
+                    player.Gold)));
+            Button increase = UiFactory.Button(
+                "+",
+                () => SetGold(TradeGoldInput.Adjust(
+                    int.TryParse(gold.Text, out int current) ? current : 0,
+                    10,
+                    player.Gold)));
             decrease.CustomMinimumSize = increase.CustomMinimumSize = new Vector2(54, 44);
             decrease.Disabled = increase.Disabled = locked;
+            UiFactory.SyncNativeInput(decrease);
+            UiFactory.SyncNativeInput(increase);
             shortcuts.AddChild(decrease);
             shortcuts.AddChild(increase);
             amount.AddChild(shortcuts);
         }
         else
         {
-            Label value = UiFactory.Label(offer.Gold.ToString(), 46, UiFactory.Accent);
-            value.CustomMinimumSize = new Vector2(300, 74);
+            Label value = UiFactory.Label(offer.Gold.ToString(), 42, UiFactory.Accent);
+            value.CustomMinimumSize = new Vector2(TradeLayout.GoldInputWidth, 58);
+            value.VerticalAlignment = VerticalAlignment.Center;
+            value.HorizontalAlignment = HorizontalAlignment.Center;
             amount.AddChild(value);
         }
         content.AddChild(amount);
-        return content;
+        content.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        return row;
     }
 
     /// <summary>
@@ -581,10 +689,12 @@ internal sealed class TradeOverlay
     /// </summary>
     private static Control CreateMidline()
     {
-        return new VSeparator
+        return new ColorRect
         {
+            Color = new Color("3a3430"),
             CustomMinimumSize = new Vector2(TradeLayout.MidlineWidth, 0),
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            MouseFilter = Control.MouseFilterEnum.Ignore
         };
     }
 

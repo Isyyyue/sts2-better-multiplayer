@@ -586,47 +586,117 @@ internal static class UiFactory
     // 程序画的（所谓"AI 感"）。官方 UI 用的是带纹理的九宫格：边缘不规则、
     // 有手绘质感。下面从 ui_atlas.sprites 加载官方切片当样式底。
     //
-    // ★★ 九宫格边距是效果好坏的关键，而且必须在游戏里看着调 ★★
-    //    猜错的后果不是"还是像 AI"，而是按钮/面板被拉伸变形，比原来更糟。
-    //    参考值：popup_vertical（石板）用的是 76/82/76/82。
-    //    调下面这三个常量即可，不用动其他代码。
+    // ★ 2026-09-18：已从 PCK 解包拿到全部 102 个切片的真实 margin，
+    //   不再猜。下面字典里的值来自官方 .tres 文件中的 margin = Rect2(...)。
+    //   若传入 marginX/marginY != -1，则覆盖字典值（方便实机微调）。
     // ==================================================================
 
-    /// <summary>按钮类切片的九宫格边距——左右。</summary>
-    private const int OfficialButtonMarginX = 22;
+    /// <summary>
+    /// 官方切片的默认九宫格边距 (left, top, right, bottom)。
+    /// 数据来自 PCK 内 ui_atlas.sprites/*.tres 的 margin 字段。
+    /// </summary>
+    private static readonly Dictionary<string, (int L, int T, int R, int B)> OfficialMargins = new()
+    {
+        // 面板 / 弹出框
+        ["popup_vertical"]            = (2,  3,  4,  11),
 
-    /// <summary>按钮类切片的九宫格边距——上下。</summary>
-    private const int OfficialButtonMarginY = 16;
+        // 按钮（popup 系列，游戏内对话框用）
+        ["popup_confirm_button"]      = (2,  3,  5,  12),
+        ["popup_cancel_button"]       = (2,  22, 4,  49),
 
-    /// <summary>面板类切片的九宫格边距。</summary>
-    private const int OfficialPanelMargin = 48;
+        // 按钮（普通系列）
+        ["confirm_button"]            = (6,  0,  14, 0),
+        ["back_button"]               = (0,  0,  0,  0),
+        ["proceed_button"]            = (0,  0,  0,  0),
+        ["peek_button"]               = (0,  0,  0,  2),
+
+        // 勾选框
+        ["checkbox_ticked"]           = (0,  26, 44, 71),
+        ["checkbox_unticked"]         = (0,  0,  0,  0),
+
+        // 标签页
+        ["settings_tab_selected"]     = (3,  3,  6,  6),
+        ["settings_tab_stroke"]       = (5,  5,  10, 10),
+
+        // 滚动条
+        ["scrollbar_train_large"]     = (2,  28, 4,  28),
+        ["scrollbar_track_center"]    = (6,  7,  12, 14),
+        ["scrollbar_track_edge2"]     = (2,  0,  4,  0),
+        ["small_scrollbar_train"]     = (0,  0,  0,  0),
+        ["small_scrollbar_track_center"] = (11, 4,  19, 8),
+        ["small_scrollbar_track_edge"]   = (0,  0,  0,  0),
+
+        // 顶栏图标
+        ["top_bar_gold"]              = (16, 18, 26, 31),
+        ["top_bar_heart"]             = (0,  0,  0,  0),
+        ["top_bar_deck"]              = (0,  0,  0,  0),
+        ["top_bar_floor"]             = (0,  0,  0,  0),
+        ["top_bar_map"]               = (0,  0,  0,  0),
+        ["top_bar_settings"]          = (0,  0,  0,  0),
+        ["top_bar_ascension"]         = (0,  0,  0,  0),
+        ["top_bar_char_backdrop"]     = (0,  0,  0,  0),
+        ["timer_icon"]                = (0,  0,  0,  0),
+
+        // 卡牌边框 / 装饰（基本无 margin，当普通图用）
+        ["card_frame_attack_s"]       = (29, 4,  55, 4),
+        ["card_frame_power_s"]        = (0,  0,  0,  0),
+        ["card_frame_skill_s"]        = (0,  0,  0,  0),
+        ["card_frame_quest_s"]        = (0,  0,  0,  0),
+        ["card_frame_ancient_s"]      = (0,  0,  0,  0),
+        ["card_banner"]               = (0,  0,  0,  0),
+        ["ancient_banner"]            = (0,  0,  0,  0),
+        ["card_enchant_s"]            = (1,  23, 2,  25),
+        ["card_unplayable_icon"]      = (0,  0,  0,  0),
+
+        // 其他小图标
+        ["sort_descending"]           = (0,  0,  0,  0),
+        ["compendium"]                = (0,  0,  0,  0),
+        ["settings_tiny_left_arrow"]  = (0,  0,  0,  0),
+        ["settings_tiny_right_arrow"] = (0,  0,  0,  0),
+        ["map_clean_up"]              = (0,  0,  0,  0),
+        ["map_eraser_1"]              = (0,  0,  0,  0),
+        ["map_eraser_2"]              = (0,  0,  0,  0),
+        ["map_legend"]                = (0,  0,  0,  0),
+        ["map_pencil_1"]              = (0,  0,  0,  0),
+        ["map_pencil_2"]              = (0,  0,  0,  0),
+    };
 
     /// <summary>
     /// 从官方 UI 图集加载一个切片，做成九宫格样式。
-    /// 加载失败返回 null，调用方回落到 <see cref="PanelStyle"/>——
-    /// 游戏更新改了路径时，界面难看但不至于崩。
+    /// 若 <paramref name="marginX"/> 或 <paramref name="marginY"/> 为 -1，
+    /// 则使用字典中该切片的默认 margin；否则用传入值覆盖。
+    /// 加载失败返回 null，调用方回落到 <see cref="PanelStyle"/>。
     /// </summary>
     internal static StyleBoxTexture? OfficialSliceStyle(
         string sliceName,
         Color? modulate = null,
-        int marginX = OfficialButtonMarginX,
-        int marginY = OfficialButtonMarginY)
+        int marginX = -1,
+        int marginY = -1)
     {
         Texture2D? texture = GD.Load<Texture2D>(
             $"res://images/atlases/ui_atlas.sprites/{sliceName}");
         if (texture is null)
             return null;
 
+        // 取默认 margin；不在字典中的切片用 (0,0,0,0)
+        var (defL, defT, defR, defB) = OfficialMargins.TryGetValue(sliceName, out var m)
+            ? m : (0, 0, 0, 0);
+
+        int L = marginX >= 0 ? marginX : defL;
+        int R = marginX >= 0 ? marginX : defR;
+        int T = marginY >= 0 ? marginY : defT;
+        int B = marginY >= 0 ? marginY : defB;
+
         return new StyleBoxTexture
         {
             Texture = texture,
-            TextureMarginLeft = marginX,
-            TextureMarginTop = marginY,
-            TextureMarginRight = marginX,
-            TextureMarginBottom = marginY,
+            TextureMarginLeft   = L,
+            TextureMarginTop    = T,
+            TextureMarginRight  = R,
+            TextureMarginBottom = B,
             ModulateColor = modulate ?? Colors.White,
             AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch,
-            AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch
+            AxisStretchVertical   = StyleBoxTexture.AxisStretchMode.Stretch
         };
     }
 
@@ -636,8 +706,8 @@ internal static class UiFactory
         Color background,
         Color border,
         Color? modulate = null,
-        int marginX = OfficialButtonMarginX,
-        int marginY = OfficialButtonMarginY) =>
+        int marginX = -1,
+        int marginY = -1) =>
         (StyleBox?)OfficialSliceStyle(sliceName, modulate, marginX, marginY)
         ?? PanelStyle(background, border, 1, 5);
 }

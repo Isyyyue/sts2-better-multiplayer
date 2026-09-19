@@ -127,7 +127,7 @@ public sealed class UiRegressionTests
                 OperandType.ShortInlineVar => 1,
             OperandType.InlineVar => 2,
             OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or
-                OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString or
+                OperandType.InlineMethod or OperandType.InlineType or OperandType.InlineSig or OperandType.InlineString or
                 OperandType.InlineTok or OperandType.ShortInlineR => 4,
             OperandType.InlineI8 or OperandType.InlineR => 8,
             OperandType.InlineSwitch => 4 + BitConverter.ToInt32(il, offset) * 4,
@@ -135,4 +135,38 @@ public sealed class UiRegressionTests
         };
 
     private readonly record struct IlInstruction(OpCode OpCode, int? MetadataToken);
+
+    [Fact]
+    public void RestOfferIsBoundToDedicatedCardRelicAndPotionRows()
+    {
+        MethodInfo restOffer = Required(
+            typeof(TradeOverlay).GetMethod("CreateRestOffer", InstanceNonPublic));
+        IReadOnlyList<IlInstruction> instructions = ReadInstructions(restOffer);
+
+        Assert.Equal(2, CountCalls(restOffer, instructions, "CreateSingleItemRow"));
+        Assert.Equal(1, CountCalls(restOffer, instructions, "CreateOfferRow"));
+    }
+
+    [Fact]
+    public void OfferPanelUsesPlayerHeaderAndSeparateContentBuilder()
+    {
+        MethodInfo panel = Required(
+            typeof(TradeOverlay).GetMethod("CreateOfferPanel", InstanceNonPublic));
+        IReadOnlyList<IlInstruction> instructions = ReadInstructions(panel);
+
+        Assert.True(CountCalls(panel, instructions, "CreatePlayerHeader") > 0);
+        Assert.True(CountCalls(panel, instructions, "CreateRestOffer") > 0);
+        Assert.True(CountCalls(panel, instructions, "CreateGoldOffer") > 0);
+    }
+
+    private static int CountCalls(
+        MethodInfo owner,
+        IReadOnlyList<IlInstruction> instructions,
+        string methodName)
+    {
+        return instructions.Count(instruction =>
+            (instruction.OpCode == OpCodes.Call || instruction.OpCode == OpCodes.Callvirt) &&
+            instruction.MetadataToken is int token &&
+            TryResolveMethod(owner.Module, token)?.Name == methodName);
+    }
 }

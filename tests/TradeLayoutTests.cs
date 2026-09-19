@@ -51,4 +51,27 @@ public sealed class TradeLayoutTests
         Assert.True(sideBySide <= bodyHeight, $"并排时 {sideBySide}px 应放得下 {bodyHeight}px。");
         Assert.True(stacked > bodyHeight, $"堆叠时 {stacked}px 本来就会溢出——这正是改用分屏的原因。");
     }
+
+    [Fact]
+    public void RestSiteOfferUsesThreeEqualRowsWithReferenceSpacing()
+    {
+        Assert.Equal(3, TradeLayout.RestOfferRowCount);
+        Assert.Equal(132, TradeLayout.OfferRowHeight);
+        Assert.Equal(20, TradeLayout.RowSeparation);
+        Assert.True(
+            TradeLayout.RestOfferMinHeight < 700,
+            $"三行交易区需要 {TradeLayout.RestOfferMinHeight}px，不能再次挤出可视区。");
+    }
+
+    [Fact]
+    public void CenterGapAndMidlineMatchReferenceGeometry()
+    {
+        Assert.Equal(6, TradeLayout.MidlineWidth);
+        Assert.True(
+            TradeLayout.BoardSeparation >= 60,
+            $"左右交易槽与中线间距只有 {TradeLayout.BoardSeparation}px。");
+        Assert.True(
+            TradeLayout.AvailablePerPanel >= TradeLayout.OfferPanelMinWidth,
+            $"单侧最小宽度 {TradeLayout.OfferPanelMinWidth}px 超过可用 {TradeLayout.AvailablePerPanel}px。");
+    }
 }
