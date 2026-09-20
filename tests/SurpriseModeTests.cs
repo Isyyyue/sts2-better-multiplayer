@@ -323,7 +323,6 @@ public sealed class SurpriseModeTests : IDisposable
             OperandType.InlineSwitch => 4 + BitConverter.ToInt32(il, offset) * 4,
             _ => throw new InvalidOperationException($"Unsupported IL operand type: {operandType}")
         };
-    }
 
     private sealed class RunManagerScope : IDisposable
     {
