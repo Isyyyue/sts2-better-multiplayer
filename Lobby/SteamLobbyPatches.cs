@@ -216,6 +216,7 @@ internal static class MultiplayerStateCleanupPatch
         JoinContext.Clear();
         PasswordGatePatch.Reset();
         RoomSession.Clear();
+        SharedGoldSync.Reset();
         TradeCoordinator.Reset();
     }
 }

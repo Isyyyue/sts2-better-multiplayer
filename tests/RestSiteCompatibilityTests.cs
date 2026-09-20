@@ -94,7 +94,7 @@ public sealed class RestSiteCompatibilityTests : IDisposable
         // 故意的哨兵数字：删掉一个补丁类时这里会立刻报警。
         // 新增补丁（BetterMultiplayerSettingsEntry、SharedGoldSync）必须同步改这个数，
         // 改动会出现在 diff 里，等于强制"看一眼自己动了什么"。
-        Assert.Equal(18, patchTypes.Length);
+        Assert.Equal(19, patchTypes.Length);
         try
         {
             foreach (Type patchType in patchTypes)
