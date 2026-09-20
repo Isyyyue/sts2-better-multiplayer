@@ -10,6 +10,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Set-StrictMode 下，若本会话还没执行过任何外部命令，$LASTEXITCODE 根本不存在，
+# 读它会抛「检索不到变量」。先兜个底，git 一执行就会被真实退出码覆盖。
+$LASTEXITCODE = 0
+
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if ([string]::IsNullOrWhiteSpace($WorkspacePath)) {
     $WorkspacePath = Join-Path $repoRoot 'artifacts\workshop-upload'
