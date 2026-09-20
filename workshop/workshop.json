@@ -11,7 +11,7 @@
     3737335127
   ],
   "contentDescriptors": [],
-  "minBranch": "public-beta",
-  "maxBranch": "public"
+  "minBranch": "public",
+  "maxBranch": "public-beta"
 }
 

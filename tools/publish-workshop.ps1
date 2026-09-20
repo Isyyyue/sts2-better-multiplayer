@@ -109,7 +109,7 @@ foreach ($pair in $filePairs) {
 }
 
 $workshopConfig = Get-Content -LiteralPath $workspaceConfigPath -Raw | ConvertFrom-Json
-$expectedBranchSupport = "Better Multiplayer $($sourceManifest.version)`nSupported Steam branches: $($workshopConfig.maxBranch) through $($workshopConfig.minBranch).`n"
+$expectedBranchSupport = "Better Multiplayer $($sourceManifest.version)`nSupported Steam branches: $($workshopConfig.minBranch) through $($workshopConfig.maxBranch).`n"
 $actualBranchSupport = Get-Content -LiteralPath (Join-Path $workspaceContentPath 'workshop-branch-support.txt') -Raw
 if ($actualBranchSupport -ne $expectedBranchSupport) {
     throw 'workshop-branch-support.txt does not match the source configuration.'

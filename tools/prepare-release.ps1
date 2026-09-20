@@ -141,7 +141,7 @@ Copy-Item -LiteralPath $workshopImagePath -Destination $resolvedUploadWorkspaceD
 Copy-Item -LiteralPath $workshopIdPath -Destination $resolvedUploadWorkspaceDir
 
 $branchSupportPath = Join-Path $resolvedContentDir 'workshop-branch-support.txt'
-$branchSupport = "Better Multiplayer $($manifest.version)`nSupported Steam branches: $($workshopConfig.maxBranch) through $($workshopConfig.minBranch).`n"
+$branchSupport = "Better Multiplayer $($manifest.version)`nSupported Steam branches: $($workshopConfig.minBranch) through $($workshopConfig.maxBranch).`n"
 [System.IO.File]::WriteAllText($branchSupportPath, $branchSupport, [System.Text.UTF8Encoding]::new($false))
 
 $contentFiles = @(Get-ChildItem -LiteralPath $resolvedContentDir -File)
