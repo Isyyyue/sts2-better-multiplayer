@@ -259,6 +259,64 @@ public sealed class SurpriseModeTests : IDisposable
     }
 
     /// <summary>
+    /// ★★ 回归：退出重进后金币按人数翻倍（四人各 60 → 240 → 960 → 3840）。
+    ///
+    /// 根因是"求和"**不是幂等操作**：合并过一次之后，从当前状态分辨不出
+    /// "没合并过的原始值"和"合并过的结果"（两种情况都是全员金币相同），
+    /// 而静态字段活不过进程重启，于是重进时会再求一次和。
+    ///
+    /// 修法：读档进局沿用现有值，只有新开一局才求和。
+    /// </summary>
+    [Fact]
+    public void RestoredRunKeepsTheExistingPoolInsteadOfSummingAgain()
+    {
+        // 四人各 240 —— 这是上一次合并的结果，存档里存的就是这个值。
+        RunState state = CreateRunState(240, 240, 240, 240);
+
+        Assert.Equal(240, SharedGoldSync.NextPool(
+            seeded: false,
+            triggeringGold: 0,
+            state,
+            restoredFromSave: true));
+    }
+
+    /// <summary>新开一局仍然要合并全队的钱。</summary>
+    [Fact]
+    public void FreshRunStillMergesEveryonesGold()
+    {
+        RunState state = CreateRunState(60, 60, 60, 60);
+
+        Assert.Equal(240, SharedGoldSync.NextPool(
+            seeded: false,
+            triggeringGold: 0,
+            state,
+            restoredFromSave: false));
+    }
+
+    /// <summary>读档池子取最大值——任何情况下都不会把数字放大。</summary>
+    [Fact]
+    public void ExistingPoolTakesTheLargestBalance()
+    {
+        Assert.Equal(240, SharedGoldSync.ExistingPool(CreateRunState(240, 240, 240, 240)));
+        Assert.Equal(70, SharedGoldSync.ExistingPool(CreateRunState(70, 60, 50)));
+        Assert.Equal(0, SharedGoldSync.ExistingPool(CreateRunState()));
+    }
+
+    /// <summary>
+    /// ★ 核心不变式：读档 → 沿用 → 再读档，值必须稳定。
+    /// 这条直接模拟"退出重进"循环——修好之前它会 240 → 960 → 3840。
+    /// </summary>
+    [Fact]
+    public void RepeatedRestoresDoNotInflateThePool()
+    {
+        RunState state = CreateRunState(240, 240, 240, 240);
+
+        Assert.Equal(240, SharedGoldSync.NextPool(false, 0, state, restoredFromSave: true));
+        Assert.Equal(240, SharedGoldSync.NextPool(false, 0, state, restoredFromSave: true));
+        Assert.Equal(240, SharedGoldSync.NextPool(false, 0, state, restoredFromSave: true));
+    }
+
+    /// <summary>
     /// 造一个只有金币、没别的东西的 RunState。
     ///
     /// 和 TradeTwoClientSimulationTests 用的是同一套反射手法：RunState 和 Player

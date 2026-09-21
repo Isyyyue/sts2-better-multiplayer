@@ -314,6 +314,9 @@ internal sealed class LobbyMenu
             return;
         }
 
+        // ★ 读档进来的局：存档里的金币就是共享池，不能再合并一次
+        //   （否则四人各 240 会被再求一次和变成 960，每重进一次翻一倍）。
+        SharedGoldSync.MarkRestoredFromSave();
         StartHost(() => _submenu.StartHost(result.SaveData));
     }
 
@@ -336,7 +339,12 @@ internal sealed class LobbyMenu
         StartNewRun();
     }
 
-    private void StartNewRun() => StartHost(() => _submenu.OnHostPressed(null!));
+    private void StartNewRun()
+    {
+        // ★ 全新的一局：这一局需要把全队的金币合并成一个池子。
+        SharedGoldSync.MarkFreshRun();
+        StartHost(() => _submenu.OnHostPressed(null!));
+    }
 
     private void StartHost(Action start)
     {

@@ -56,6 +56,25 @@ internal static class SharedGoldSync
     /// <summary>池子绑在哪一局的 RunState 上——换局要重新播种。</summary>
     private static RunState? _boundState;
 
+    /// <summary>
+    /// 这一局是从存档恢复的（读档），还是全新开的。
+    ///
+    /// ★ 为什么必须区分：池子靠"求和"播种，而**求和不是幂等操作**——
+    /// 合并过一次之后，从当前状态分辨不出"这是没合并过的原始值"还是"合并过的结果"
+    /// （两种情况都是"全员金币相同"）。而静态字段活不过进程重启，
+    /// 于是退出重进后会对已经变成池子的金币再求一次和，按人数翻倍：
+    ///   四人各 60 → 240 → 960 → 3840 …
+    ///
+    /// 读档时存档里的金币**就是**池子，直接沿用即可，绝不能再合并。
+    /// </summary>
+    private static bool _restoredFromSave;
+
+    /// <summary>读档进局时调用：池子已经在存档里了，别再合并一次。</summary>
+    internal static void MarkRestoredFromSave() => _restoredFromSave = true;
+
+    /// <summary>新开一局时调用：这一局需要把全队的金币合并成一个池子。</summary>
+    internal static void MarkFreshRun() => _restoredFromSave = false;
+
     /// <summary>等待网络加载结束的首次播种任务，换局或退回主菜单时取消。</summary>
     private static CancellationTokenSource _initializationLifetime = new();
 
@@ -134,7 +153,7 @@ internal static class SharedGoldSync
         if (_seeded)
             return false;
 
-        _pool = SeedPool(state);
+        _pool = NextPool(seeded: false, triggeringGold: 0, state, _restoredFromSave);
         _seeded = true;
         Apply(state, _pool);
         Broadcast(_pool);
@@ -273,13 +292,39 @@ internal static class SharedGoldSync
     /// <summary>
     /// 算下一次的池子值。
     ///
-    /// 未播种时用"全队求和"——这是"一进去大家一样多"的来源；
     /// 播种之后直接用触发者的新值：上一次同步已经把全员设成了池子，
     /// 所以"变化前的值"就是池子，新值自然就是新池子。
     /// （等价于"池子 += 增量"，但不需要 Prefix 去记旧值。）
+    ///
+    /// 未播种时分两种：
+    ///   - 新开一局 → 全队求和（"一进去大家一样多"的来源）
+    ///   - 读档进局 → 沿用现有值（★ 再求和会按人数翻倍，见 _restoredFromSave 的注释）
     /// </summary>
-    internal static int NextPool(bool seeded, int triggeringGold, RunState state) =>
-        seeded ? triggeringGold : SeedPool(state);
+    internal static int NextPool(
+        bool seeded,
+        int triggeringGold,
+        RunState state,
+        bool restoredFromSave = false) =>
+        seeded
+            ? triggeringGold
+            : restoredFromSave
+                ? ExistingPool(state)
+                : SeedPool(state);
+
+    /// <summary>
+    /// 读档时的池子：全员金币已经被同步成同一个值，取最大的那个。
+    ///
+    /// 用最大值而不是求和，是为了**任何情况下都不会把数字放大**——
+    /// 就算存档里的值因为别的原因不一致，也不会再翻倍。
+    /// </summary>
+    internal static int ExistingPool(RunState state)
+    {
+        int pool = 0;
+        foreach (Player player in state.Players)
+            pool = Math.Max(pool, player.Gold);
+
+        return pool;
+    }
 
     /// <summary>客户端收到房主推来的统一余额后照抄。</summary>
     internal static void ApplyFromHost(int gold)
