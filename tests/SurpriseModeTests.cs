@@ -111,24 +111,41 @@ public sealed class SurpriseModeTests : IDisposable
     /// 谁把它删了，这里会红。
     /// </summary>
     [Theory]
-    [InlineData(false, true, false, true, 2, false)]  // 不在 run 里（主菜单）
-    [InlineData(true, false, false, true, 2, false)]  // 还没连上
-    [InlineData(true, true, true, true, 2, false)]    // ★ 关卡加载中——卡死就发生在这个窗口
-    [InlineData(true, true, false, false, 2, false)]  // 不是房主
-    [InlineData(true, true, false, true, 1, false)]   // 单人，没什么可共享的
-    [InlineData(true, true, false, true, 0, false)]   // 玩家列表还没建好
-    [InlineData(true, true, false, true, 2, true)]    // 全部满足
+    [InlineData(false, true, false, 2, false)]  // 不在 run 里（主菜单）
+    [InlineData(true, false, false, 2, false)]  // 还没连上
+    [InlineData(true, true, true, 2, false)]    // ★ 关卡加载中——卡死就发生在这个窗口
+    [InlineData(true, true, false, 1, false)]   // 单人，没什么可共享的
+    [InlineData(true, true, false, 0, false)]   // 玩家列表还没建好
+    [InlineData(true, true, false, 2, true)]    // 全部满足
     public void ShouldSyncRequiresEveryCondition(
         bool inProgress,
         bool connected,
         bool gameLoading,
-        bool isHost,
         int playerCount,
         bool expected)
     {
         Assert.Equal(
             expected,
-            SharedGoldSync.ShouldSync(inProgress, connected, gameLoading, isHost, playerCount));
+            SharedGoldSync.ShouldSync(inProgress, connected, gameLoading, playerCount));
+    }
+
+    /// <summary>
+    /// ★ 回归：客户端也必须参与同步，不能只等房主广播。
+    ///
+    /// 锁步模型下两端收到的是同一批金币动作，确定性算法算出的结果必然相同；
+    /// 而只让房主算、客户端干等广播，广播一漏两端就分叉
+    /// ——游戏会弹「数据不同步」并断开连接。
+    ///
+    /// 所以 ShouldSync 里**没有** isHost 这个条件。谁把它加回去，这里会红。
+    /// </summary>
+    [Fact]
+    public void ShouldSyncDoesNotDependOnBeingHost()
+    {
+        Assert.True(SharedGoldSync.ShouldSync(
+            inProgress: true,
+            connected: true,
+            gameLoading: false,
+            playerCount: 2));
     }
 
     /// <summary>

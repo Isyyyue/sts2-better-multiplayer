@@ -99,9 +99,18 @@ internal static class SharedGoldSync
                 _seeded = false;
             }
 
-            _pool = NextPool(_seeded, __instance.Gold, state);
+            _pool = NextPool(_seeded, __instance.Gold, state, _restoredFromSave);
             _seeded = true;
 
+            // ★ 两端都自己算、自己写，不再只等房主广播。
+            //
+            // 游戏的多人是锁步模型：同步的是"输入/动作"，各端独立模拟出状态
+            // （见游戏里的 InputSynchronizer / ActionQueueSynchronizer）。
+            // 金币变化本身就是一个两端都会收到的动作，所以只要算法是确定性的，
+            // 两端算出来必然一样，不需要等网络。
+            //
+            // 以前客户端在 ReadyState 里被 isHost 挡住、什么都不做，状态要等广播才追上；
+            // 广播晚到或漏掉，两端就分叉——游戏会弹"数据不同步"并断开连接。
             Apply(state, _pool);
             Broadcast(_pool);
         }
@@ -240,7 +249,6 @@ internal static class SharedGoldSync
                 inProgress: manager.IsInProgress,
                 connected: manager.NetService.IsConnected,
                 gameLoading: manager.NetService.IsGameLoading,
-                isHost: TradeNetwork.IsHost,
                 playerCount: state?.Players.Count ?? 0);
 
             return ready ? state : null;
@@ -258,20 +266,22 @@ internal static class SharedGoldSync
     /// 这里少了一个条件造成的：关卡加载早期 Player.Gold 就会被赋值，
     /// 那一刻网络还没就绪，裸读 NetService 会抛异常。
     ///
-    /// 现在五个条件缺一不可：
+    /// 四个条件缺一不可：
     ///   inProgress   —— 在真正的一局里（不是主菜单）
     ///   connected    —— 已经连上
     ///   !gameLoading —— ★ 关卡不在加载中。用户报的卡死正好发生在这个窗口
-    ///   isHost       —— 权威只在房主
     ///   playerCount  —— 至少两个人，否则没什么可共享的
+    ///
+    /// ★ 这里**没有** isHost：房主和客户端都要自己算、自己写。
+    ///   锁步模型下两端收到的金币动作是同一批，确定性算法算出的结果必然相同；
+    ///   反过来，如果只让房主算、客户端干等广播，广播一漏两端就分叉。
     /// </summary>
     internal static bool ShouldSync(
         bool inProgress,
         bool connected,
         bool gameLoading,
-        bool isHost,
         int playerCount) =>
-        inProgress && connected && !gameLoading && isHost && playerCount > 1;
+        inProgress && connected && !gameLoading && playerCount > 1;
 
     /// <summary>
     /// 开局播种：把所有人的余额加起来当池子。
@@ -326,14 +336,24 @@ internal static class SharedGoldSync
         return pool;
     }
 
-    /// <summary>客户端收到房主推来的统一余额后照抄。</summary>
+    /// <summary>
+    /// 收到房主推来的统一余额。
+    ///
+    /// 现在两端都会自己算（见 Postfix 里的说明），这条路径退化成**兜底**：
+    /// 万一某端因为状态差异算出了不一样的值，房主的广播把它拉回来。
+    /// 所以这里要连池子和播种标记一起更新，否则下次本地计算会拿旧池子去比。
+    /// </summary>
     internal static void ApplyFromHost(int gold)
     {
         try
         {
             RunState? state = RunManager.Instance.State;
-            if (state is not null)
-                Apply(state, gold);
+            if (state is null)
+                return;
+
+            _pool = gold;
+            _seeded = true;
+            Apply(state, gold);
         }
         catch (Exception ex)
         {
@@ -361,6 +381,11 @@ internal static class SharedGoldSync
 
     private static void Broadcast(int gold)
     {
+        // 客户端不广播——它已经自己算完并写好了（见 Postfix 里的说明）。
+        // 而且 TradeNetwork.Broadcast 只在房主可用，非房主调它会抛异常。
+        if (!TradeNetwork.IsHost)
+            return;
+
         try
         {
             // 本地已经 Apply 过了，别让消息绕回来再放一次。
