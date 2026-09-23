@@ -9,6 +9,15 @@ using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading.Core;
 
+/// <summary>
+/// 交易会话的房主端权威。
+///
+/// 同步模式：<see cref="SyncAuthority.HostArbitrated"/>。
+/// 报价、确认、取消都先到房主程序，但房主玩家不需要额外点批准 ——
+/// 校验双方库存、数量上限、药水槽、重复遗物和禁交易物品之后，
+/// 只有双方确认了同一修订号才广播唯一事务；各端按同一事务应用，
+/// 已处理的事务号会被忽略（ADR-003）。
+/// </summary>
 internal static class TradeCoordinator
 {
     private static readonly Dictionary<ulong, TradeLocation> AvailablePlayers = [];

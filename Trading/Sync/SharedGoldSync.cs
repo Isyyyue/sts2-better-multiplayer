@@ -17,6 +17,9 @@ namespace BetterMultiplayer.Trading.Sync;
 /// <summary>
 /// 惊喜模式：金币共享。
 ///
+/// 同步模式：<see cref="SyncAuthority.DeterministicLocal"/> ——
+/// 两端各自按确定性算法重算，房主广播只作兜底（理由见 Postfix 里的说明）。
+///
 /// 开了之后全队共用一本账 —— 顶部那个金币数是"全队总和"，
 /// 谁捡到钱总和就变大，谁花掉钱总和就变小。
 /// 玩家看到的是"金币莫名其妙跟着队友走"，这正是这个模式想要的效果，

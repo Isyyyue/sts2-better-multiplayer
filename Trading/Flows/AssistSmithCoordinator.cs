@@ -7,6 +7,17 @@ using BetterMultiplayer.Diagnostics;
 
 namespace BetterMultiplayer.Trading.Flows;
 
+/// <summary>
+/// 协助锻造的房主端校验。
+///
+/// 同步模式：<see cref="SyncAuthority.HostValidatedChoice"/>。
+/// 发起者用官方的队友目标选择和锻造牌组界面完成选择，把结果交给房主；
+/// 房主校验目标玩家、牌组序号、卡牌 ID、升级等级与当前可升级状态之后，
+/// 再向所有节点广播同一结果（ADR-004）。
+///
+/// 校验失败（例如选择期间队友牌组发生变化）就整体取消、返回篝火界面，
+/// 且**不消耗发起者的篝火行动**。
+/// </summary>
 internal static class AssistSmithCoordinator
 {
     private readonly record struct PendingRequest(
