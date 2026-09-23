@@ -57,6 +57,22 @@ internal sealed class BetterMultiplayerConfig : SimpleModConfig
     public static bool SurpriseSharedGold { get; set; }
 
     // ------------------------------------------------------------------
+    // 交易后允许重复遗物
+    //
+    // 关着 = 原版行为：结算时若有一方会因此持有两个同名遗物，整笔交易被拒。
+    // 打开 = 放行这类交易。
+    //
+    // 和 UnlockRelicTrading 是两件事，互不覆盖：
+    //   那一项管「这个遗物本身能不能交易」（稀有度 / 副作用），
+    //   这一项管「交易完会不会撞上已有遗物」。
+    //
+    // 声明位置同样必须在第一个 ConfigSection 之前——理由见上面惊喜模式那段。
+    // ------------------------------------------------------------------
+
+    [ConfigHoverTip]
+    public static bool AllowDuplicateRelicsAfterTrade { get; set; }
+
+    // ------------------------------------------------------------------
     // 反馈
     //
     // 悬停提示保留了大厅按钮上那段隐私说明（上传了什么、不含什么）。

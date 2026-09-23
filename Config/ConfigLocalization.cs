@@ -50,6 +50,15 @@ internal static class ConfigLocalization
         // 「不给任何解释」是功能的一部分，加回去会被 SurpriseModeTests 挡下。
         [Prefix + "SURPRISE_SHARED_GOLD.title"] = Text(language, TextKey.SettingSurpriseMode),
 
+        // 重复遗物开关。和总开关一样带悬停说明：
+        // 它放行的是「交易后撞上已有遗物」，不写清楚玩家会以为和上面那个是同一件事。
+        [Prefix + "ALLOW_DUPLICATE_RELICS_AFTER_TRADE.title"] =
+            Text(language, TextKey.SettingAllowDuplicateRelics),
+        [Prefix + "ALLOW_DUPLICATE_RELICS_AFTER_TRADE.hover.title"] =
+            Text(language, TextKey.SettingAllowDuplicateRelics),
+        [Prefix + "ALLOW_DUPLICATE_RELICS_AFTER_TRADE.hover.desc"] =
+            Text(language, TextKey.SettingAllowDuplicateRelicsTip),
+
         // 反馈按钮行。BaseLib 的按钮行有【两个】标题键：
         //   行标题   Slugify(方法名)           -> SEND_FEEDBACK.title
         //   按钮文字 Slugify(ButtonLabelKey)  -> SEND_FEEDBACK_BUTTON.title

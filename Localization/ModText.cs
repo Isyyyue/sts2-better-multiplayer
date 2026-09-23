@@ -138,6 +138,8 @@ internal enum TextKey
     SettingUnlockRelicTrading,
     SettingUnlockRelicTradingTip,
     SettingSurpriseMode,
+    SettingAllowDuplicateRelics,
+    SettingAllowDuplicateRelicsTip,
     SettingSendFeedbackButton,
     FeedbackSubmitted,
     FeedbackBusy,
@@ -296,6 +298,14 @@ internal static class ModText
                 "Relics with no side effects are always tradable. Turn this on to also allow the rest:\n· those whose on-gain effect replays (the receiver triggers it again, e.g. Old Coin grants its gold twice)\n· those carrying a state (used up / melted, which transfers with the relic)\n· those that come with a pet (trading grants a second one)"),
             // 惊喜模式：刻意只给名字。任何补充说明都会毁掉这个功能。
             [TextKey.SettingSurpriseMode] = ("惊喜模式", "Surprise Mode"),
+            // 重复遗物开关。和「解除遗物交易限制」是两件事，说明里必须讲清区别，
+            // 否则玩家会以为打开了上面那个就自动包含这一项。
+            [TextKey.SettingAllowDuplicateRelics] = (
+                "允许交易后重复遗物",
+                "Allow duplicate Relics after trading"),
+            [TextKey.SettingAllowDuplicateRelicsTip] = (
+                "默认情况下，一笔交易只要会让某一方持有两个同名遗物就会被整笔拒绝。\n打开这一项会放行这类交易。\n这一项只管「交易完会不会撞上已有遗物」，和上面那个总开关互不覆盖。",
+                "By default a trade is rejected outright when either player would end up holding two copies of the same Relic.\nTurn this on to allow those trades.\nThis only covers duplicate Relics; it is independent of the relic-trading switch above."),
             [TextKey.SettingSendFeedbackButton] = ("反馈", "Send"),
             // 反馈结果弹窗。设置页上的反馈按钮原来点完什么都不显示，
             // 表现就是"点了没反应"——这组文案是补上的可见反馈。

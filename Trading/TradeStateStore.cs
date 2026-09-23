@@ -42,8 +42,13 @@ internal static class TradeStateStore
         if (!snapshot.Contains(TradeNetwork.LocalPlayerId))
             return;
 
+        // ★ 只在【换了一笔交易】时清空错误，不能无条件清。
+        //   房主拒绝报价时发的是「错误 + 快照」两条消息，快照往往后到；
+        //   无条件清空会把刚弹出的失败原因立刻擦掉，玩家只看到"点了没反应"。
+        bool sameSession = CurrentSession?.SessionId == snapshot.SessionId;
         CurrentSession = snapshot.Clone();
-        LastError = string.Empty;
+        if (!sameSession)
+            LastError = string.Empty;
         Changed?.Invoke();
     }
 

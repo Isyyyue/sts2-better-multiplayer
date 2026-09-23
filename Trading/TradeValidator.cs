@@ -130,6 +130,23 @@ internal static class TradeValidator
         }
     }
 
+    // 交易后是否允许某一方持有重复遗物。默认不允许（原版规则）。
+    //
+    // 兜底理由和 CanTradeRelic 一样：清单里声明的 BaseLib 最低版本早于实际
+    // 验证过的版本，配置类型可能加载失败。捕获后回落 false = 原版行为，
+    // 宁可这个开关用不了，也不能让交易校验整个报错。
+    internal static bool DuplicateRelicsAllowed()
+    {
+        try
+        {
+            return BetterMultiplayerConfig.AllowDuplicateRelicsAfterTrade;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     internal static bool TryResolvePair(
         Player playerA,
         TradeOffer offerA,
@@ -189,20 +206,26 @@ internal static class TradeValidator
             return false;
         }
 
-        HashSet<ModelId> finalRelicsA = playerA.Relics
-            .Except(validA.Relics)
-            .Select(relic => relic.Id)
-            .ToHashSet();
-        HashSet<ModelId> finalRelicsB = playerB.Relics
-            .Except(validB.Relics)
-            .Select(relic => relic.Id)
-            .ToHashSet();
-
-        if (validB.Relics.Any(relic => !finalRelicsA.Add(relic.Id)) ||
-            validA.Relics.Any(relic => !finalRelicsB.Add(relic.Id)))
+        // 原版规则不允许玩家持有两个同名遗物，所以一笔会让某方撞上已有遗物的
+        // 交易会被整笔拒绝。开关打开时跳过——注意两个 HashSet 的构造本身带副作用
+        // （Add 会消耗元素），所以必须整段跳，不能只改 if 的条件。
+        if (!DuplicateRelicsAllowed())
         {
-            error = ModText.Token(TextKey.DuplicateRelicAfterTrade);
-            return false;
+            HashSet<ModelId> finalRelicsA = playerA.Relics
+                .Except(validA.Relics)
+                .Select(relic => relic.Id)
+                .ToHashSet();
+            HashSet<ModelId> finalRelicsB = playerB.Relics
+                .Except(validB.Relics)
+                .Select(relic => relic.Id)
+                .ToHashSet();
+
+            if (validB.Relics.Any(relic => !finalRelicsA.Add(relic.Id)) ||
+                validA.Relics.Any(relic => !finalRelicsB.Add(relic.Id)))
+            {
+                error = ModText.Token(TextKey.DuplicateRelicAfterTrade);
+                return false;
+            }
         }
 
         error = string.Empty;

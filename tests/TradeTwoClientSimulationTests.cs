@@ -25,6 +25,35 @@ public sealed class TradeTwoClientSimulationTests : IDisposable
 
     public void Dispose() => TradeCoordinator.Reset();
 
+    /// <summary>
+    /// ★ 守的是"休息处交易界面刚打开就被判定成结束"。
+    ///
+    /// 关闭界面时发的那条可用性广播，以前会顺手把发消息那个玩家自己的
+    /// 等待也放行。但这条广播是网络事件，可能迟到——玩家已经重新打开了
+    /// 界面、注册了新的等待，这时一条迟到的广播会把新等待直接完成掉，
+    /// 休息处那边看到的就成了"界面刚打开，选项就结束了"。
+    /// 收尾该由 TradeOverlay.Shutdown 在本地同步做，不该绕网络一圈。
+    /// </summary>
+    [Fact]
+    public void AWithdrawalBroadcastDoesNotReleaseTheRestSiteWait()
+    {
+        using RunManagerSimulationScope run = new(HostPlayerId);
+        TradeRestSiteFlow.Reset();
+
+        Task<bool> waiting = TradeRestSiteFlow.WaitForResult(HostPlayerId);
+
+        new AvailabilityEvent
+        {
+            PlayerId = HostPlayerId,
+            Available = false,
+            Location = TradeLocation.RestSite
+        }.HandleMessage(HostPlayerId);
+
+        Assert.False(waiting.IsCompleted);
+
+        TradeRestSiteFlow.Reset();
+    }
+
     [Fact]
     public void SupersededMerchantOwnerExitPreservesBothPlayersUntilCurrentOwnerExits()
     {

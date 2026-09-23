@@ -219,10 +219,16 @@ internal static class TradeCoordinator
         if (!TryGetActiveParticipant(senderId, sessionId, out TradeSessionSnapshot? session))
             return;
 
+        // ★ 下面每条拒绝路径都必须回一份权威快照，不能只发错误。
+        //   客户端要等报价同步完成（TradeOverlay 的 _offerUpdatePending）才会
+        //   解锁"锁定报价"按钮，而它只靠收到快照来解除等待。只发错误的话，
+        //   按钮会永远灰着，玩家看到的就是"交易卡死，一直显示等待对方确定"。
+
         Player? player = RunManager.Instance.State?.GetPlayer(senderId);
         if (player is null)
         {
             Error(senderId, ModText.Token(TextKey.PlayerNotFound));
+            BroadcastSnapshot(session);
             return;
         }
         int availableGold = player.Gold;
@@ -231,6 +237,7 @@ internal static class TradeCoordinator
             if (!TradeGoldBalance.TryValidateOffer(reportedGold, rawOffer.Gold, out string goldError))
             {
                 Error(senderId, goldError);
+                BroadcastSnapshot(session);
                 return;
             }
             availableGold = player.Gold;
@@ -240,6 +247,7 @@ internal static class TradeCoordinator
         if (!TradeValidator.TryResolve(player, rawOffer, session.Location, availableGold, out _, out string error))
         {
             Error(senderId, error.Length == 0 ? ModText.Token(TextKey.InvalidOffer) : error);
+            BroadcastSnapshot(session);
             return;
         }
 

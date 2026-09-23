@@ -87,6 +87,17 @@ internal sealed class TradeOverlay
         if (_closed)
             return;
 
+        // ★ 报价同步失败时必须自己解锁。
+        //   房主拒绝报价时只回错误、不回滚客户端这边的 _offerUpdatePending，
+        //   不解开的话"锁定报价"按钮会一直灰着，玩家唯一能做的就是取消整笔交易——
+        //   也就是"交易卡死，一直显示等待对方确定"。
+        if (_offerUpdatePending && TradeStateStore.LastError.Length > 0)
+        {
+            CancelQueuedOffer();
+            _offerUpdatePending = false;
+            _confirmAfterOfferSync = false;
+        }
+
         bool confirmAfterSync = false;
         TradeSessionSnapshot? session = TradeStateStore.CurrentSession;
         if (session?.Status == TradeSessionStatus.Active &&
@@ -1266,7 +1277,21 @@ internal sealed class TradeOverlay
         _availabilitySendCancellation = null;
         TradeStateStore.Changed -= OnStateChanged;
         if (_location == TradeLocation.RestSite)
-            TradeRestSiteFlow.Complete(TradeNetwork.LocalPlayerId, success: false);
+        {
+            // LocalPlayerId 是裸读 NetService 的。退出场景时它可能已经被销毁，
+            // 异常冒出去会让这个收尾方法半途中断——后面的可用性撤回和
+            // 其余解绑都跑不到。真读不到也不要紧：EndLocation 会把
+            // TradeRestSiteFlow 里剩下的 waiter 全部放行。
+            try
+            {
+                TradeRestSiteFlow.Complete(TradeNetwork.LocalPlayerId, success: false);
+            }
+            catch (Exception ex)
+            {
+                BetterMultiplayerMod.Logger.Warn(
+                    $"Releasing the rest-site trade wait failed: {ex.GetType().Name}");
+            }
+        }
         if (_announced && CanUseNetwork())
         {
             _announced = false;

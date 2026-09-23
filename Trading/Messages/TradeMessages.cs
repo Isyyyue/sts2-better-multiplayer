@@ -160,8 +160,14 @@ public sealed class AvailabilityEvent : ICustomMessage
     {
         if (TradeNetwork.IsHostSender(senderId))
         {
-            if (!Available && Location == TradeLocation.RestSite)
-                TradeRestSiteFlow.Complete(PlayerId, success: false);
+            // ★ 这里刻意【不】调 TradeRestSiteFlow.Complete。
+            //   这是一条网络事件，而 PlayerId 指向的玩家可能刚又重新打开了交易界面
+            //   （也就是刚注册了一个新 waiter）。一条迟到的"关闭"广播会把那个新
+            //   waiter 直接完成掉，界面一打开就被判定成结束——日志里
+            //   "Trade overlay shown" 紧跟 "chose rest site option ... success False"
+            //   就是这个现象。
+            //   关界面时的收尾由 TradeOverlay.Shutdown 在本地同步完成，不用走网络绕一圈；
+            //   交易真正成交时的完成则由 ApplyCommitAsync / MarkHostCommit 负责。
             bool changed = TradeStateStore.SetAvailability(PlayerId, Available, Location);
             DiagnosticRecorder.RecordAvailabilityReceived(Location, Available, changed);
         }
