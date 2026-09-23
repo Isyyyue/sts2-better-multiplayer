@@ -206,9 +206,20 @@ internal static class TradeValidator
             return false;
         }
 
-        // 原版规则不允许玩家持有两个同名遗物，所以一笔会让某方撞上已有遗物的
+        // 本模组默认沿用原版的"不重复持有"约束，所以一笔会让某方撞上已有遗物的
         // 交易会被整笔拒绝。开关打开时跳过——注意两个 HashSet 的构造本身带副作用
         // （Add 会消耗元素），所以必须整段跳，不能只改 if 的条件。
+        //
+        // ★ 放行是安全的（2026-09-23 反编译核实，整条链路三处都不拦重复）：
+        //     RelicCmd.Obtain          —— 没有重复检查
+        //     Player.AddRelicInternal  —— 直接 _relics.Add，没有检查
+        //     RelicGrabBag.Remove      —— 用 RemoveAll，幂等，找不到也不抛
+        //   原版"不重复"的约束其实来自**抽取池和遗物选择界面**，不在 Obtain 这条路上。
+        //   所以放行后拿到的是两个**独立实例**（各自 StackCount = 1）。
+        //
+        //   刻意不走 RelicModel.IncrementStackCount：它只对 IsStackable=true 的遗物
+        //   有效（默认 false，只有 Circlet 之类少数几个可堆叠），对绝大多数遗物会
+        //   直接抛 InvalidOperationException。别改。
         if (!DuplicateRelicsAllowed())
         {
             HashSet<ModelId> finalRelicsA = playerA.Relics
