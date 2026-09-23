@@ -1,4 +1,4 @@
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Flows;
 
 internal static class TradeRestSiteFlow
 {

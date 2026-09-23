@@ -11,7 +11,7 @@ using BetterMultiplayer.Localization;
 using BetterMultiplayer.UI;
 using BetterMultiplayer.Diagnostics;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Flows;
 
 [HarmonyPatch(typeof(NMerchantRoom), nameof(NMerchantRoom._Ready))]
 internal static class MerchantTradePatch

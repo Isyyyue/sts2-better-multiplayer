@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using BetterMultiplayer.Trading;
 using Godot;
 using MegaCrit.Sts2.Core.Entities.Players;
 

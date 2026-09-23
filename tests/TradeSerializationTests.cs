@@ -1,4 +1,3 @@
-using BetterMultiplayer.Trading;
 using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.Localization;
 using MegaCrit.Sts2.Core.Multiplayer.Serialization;

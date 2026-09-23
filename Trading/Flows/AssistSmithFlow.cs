@@ -1,6 +1,6 @@
 using BetterMultiplayer.Diagnostics;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Flows;
 
 internal sealed record AssistSmithResult(
     bool Success,

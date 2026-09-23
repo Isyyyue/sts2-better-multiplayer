@@ -4,7 +4,7 @@ using MegaCrit.Sts2.Core.Models;
 using BetterMultiplayer.Config;
 using BetterMultiplayer.Localization;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Core;
 
 internal sealed record ResolvedOffer(
     IReadOnlyList<CardModel> Cards,

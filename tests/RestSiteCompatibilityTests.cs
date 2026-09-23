@@ -1,5 +1,4 @@
 using System.Reflection;
-using BetterMultiplayer.Trading;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Runs;

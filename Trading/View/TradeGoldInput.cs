@@ -1,7 +1,7 @@
 using System.Globalization;
 using BetterMultiplayer.Localization;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.View;
 
 internal static class TradeGoldInput
 {

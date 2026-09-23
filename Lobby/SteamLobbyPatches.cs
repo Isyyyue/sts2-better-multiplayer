@@ -11,7 +11,6 @@ using MegaCrit.Sts2.Core.Runs;
 using Steamworks;
 using StsSteamClient = MegaCrit.Sts2.Core.Multiplayer.Transport.Steam.SteamClient;
 using BetterMultiplayer.Diagnostics;
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Lobby;
 

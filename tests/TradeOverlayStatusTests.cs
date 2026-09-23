@@ -1,5 +1,4 @@
 using BetterMultiplayer.Localization;
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Tests;
 

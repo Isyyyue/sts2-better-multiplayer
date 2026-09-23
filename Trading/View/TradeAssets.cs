@@ -1,7 +1,7 @@
 using System.Reflection;
 using Godot;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.View;
 
 internal static class TradeAssets
 {

@@ -1,6 +1,5 @@
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Tests;
 

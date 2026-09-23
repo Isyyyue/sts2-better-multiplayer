@@ -1,6 +1,5 @@
 using System.Reflection;
 using BetterMultiplayer.Config;
-using BetterMultiplayer.Trading;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.Relics;
 using Xunit;

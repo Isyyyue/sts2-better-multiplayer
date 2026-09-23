@@ -1,4 +1,4 @@
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.View;
 
 using BetterMultiplayer.UI;
 

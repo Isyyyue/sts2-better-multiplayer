@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using BetterMultiplayer.Diagnostics;
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Tests;
 

@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using BetterMultiplayer.Trading;
 using BetterMultiplayer.UI;
 using MegaCrit.Sts2.addons.mega_text;
 

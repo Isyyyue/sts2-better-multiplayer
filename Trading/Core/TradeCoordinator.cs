@@ -7,7 +7,7 @@ using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.Localization;
 using BetterMultiplayer.Diagnostics;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Core;
 
 internal static class TradeCoordinator
 {

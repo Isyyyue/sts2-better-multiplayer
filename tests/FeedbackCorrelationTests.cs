@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Text.Json;
 using BetterMultiplayer.Diagnostics;
 using BetterMultiplayer.Lobby;
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Tests;
 

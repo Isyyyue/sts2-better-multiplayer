@@ -1,4 +1,4 @@
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Core;
 
 using BetterMultiplayer.Localization;
 

@@ -3,7 +3,7 @@ using MegaCrit.Sts2.Core.Multiplayer;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Runs;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Sync;
 
 internal static class TradeNetwork
 {

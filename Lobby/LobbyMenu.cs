@@ -12,7 +12,6 @@ using MegaCrit.Sts2.Core.Platform.Steam;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Runs;
 using MegaCrit.Sts2.addons.mega_text;
-using BetterMultiplayer.Trading;
 using BetterMultiplayer.UI;
 using BetterMultiplayer.Localization;
 

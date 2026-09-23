@@ -6,7 +6,7 @@ using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Sync;
 
 internal static class TradeTransactionApplier
 {

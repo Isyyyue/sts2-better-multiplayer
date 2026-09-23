@@ -1,4 +1,3 @@
-using BetterMultiplayer.Trading;
 using MegaCrit.Sts2.Core.Models.Relics;
 
 namespace BetterMultiplayer.Tests;

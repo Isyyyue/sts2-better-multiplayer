@@ -1,6 +1,6 @@
 using MegaCrit.Sts2.Core.Multiplayer.Serialization;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Core;
 
 public enum TradeLocation : byte
 {

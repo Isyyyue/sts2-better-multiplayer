@@ -24,7 +24,7 @@ using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.Localization;
 using BetterMultiplayer.Diagnostics;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Flows;
 
 internal sealed class AssistSmithRestSiteOption(Player owner) : CustomRestSiteOption(owner)
 {

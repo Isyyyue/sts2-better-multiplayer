@@ -1,5 +1,4 @@
 using System.Reflection;
-using BetterMultiplayer.Trading;
 using BetterMultiplayer.Trading.Messages;
 
 namespace BetterMultiplayer.Tests;

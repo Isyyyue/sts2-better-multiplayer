@@ -3,7 +3,6 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using BaseLib.Abstracts;
 using BetterMultiplayer.Diagnostics;
-using BetterMultiplayer.Trading;
 using BetterMultiplayer.Trading.Messages;
 using MegaCrit.Sts2.Core.Entities.Multiplayer;
 using MegaCrit.Sts2.Core.Entities.Players;

@@ -6,7 +6,6 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using BaseLib.Config;
 using BetterMultiplayer.Config;
-using BetterMultiplayer.Trading;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Multiplayer.Game;

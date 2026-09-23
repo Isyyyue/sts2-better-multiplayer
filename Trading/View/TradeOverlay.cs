@@ -10,7 +10,7 @@ using BetterMultiplayer.UI;
 using BetterMultiplayer.Localization;
 using BetterMultiplayer.Diagnostics;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.View;
 
 internal sealed class TradeOverlay
 {

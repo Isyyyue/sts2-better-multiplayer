@@ -13,7 +13,7 @@ using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Runs;
 using BetterMultiplayer.Diagnostics;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Flows;
 
 internal sealed class TradeRestSiteOption(Player owner) : CustomRestSiteOption(owner)
 {

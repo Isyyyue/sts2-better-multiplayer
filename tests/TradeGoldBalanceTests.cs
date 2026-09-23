@@ -1,4 +1,3 @@
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Tests;
 

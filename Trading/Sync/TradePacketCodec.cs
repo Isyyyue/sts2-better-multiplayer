@@ -1,6 +1,6 @@
 using MegaCrit.Sts2.Core.Multiplayer.Serialization;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Sync;
 
 internal static class TradePacketCodec
 {

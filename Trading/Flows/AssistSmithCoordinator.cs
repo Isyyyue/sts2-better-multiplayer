@@ -5,7 +5,7 @@ using BetterMultiplayer.Trading.Messages;
 using BetterMultiplayer.Localization;
 using BetterMultiplayer.Diagnostics;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Flows;
 
 internal static class AssistSmithCoordinator
 {

@@ -4,7 +4,6 @@ using Godot;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Diagnostics;
 

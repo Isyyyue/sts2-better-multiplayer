@@ -12,7 +12,7 @@ using MegaCrit.Sts2.Core.Runs;
 using BetterMultiplayer.Config;
 using BetterMultiplayer.Trading.Messages;
 
-namespace BetterMultiplayer.Trading;
+namespace BetterMultiplayer.Trading.Sync;
 
 /// <summary>
 /// 惊喜模式：金币共享。

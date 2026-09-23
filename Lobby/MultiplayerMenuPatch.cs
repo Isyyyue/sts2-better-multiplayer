@@ -4,7 +4,6 @@ using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
 using MegaCrit.Sts2.addons.mega_text;
 using BetterMultiplayer.Localization;
-using BetterMultiplayer.Trading;
 
 namespace BetterMultiplayer.Lobby;
 

@@ -5,7 +5,6 @@ using BaseLib.Config;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Modding;
 using BetterMultiplayer.Config;
-using BetterMultiplayer.Trading;
 using StsLogger = MegaCrit.Sts2.Core.Logging.Logger;
 
 namespace BetterMultiplayer;
