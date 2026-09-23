@@ -1,0 +1,29 @@
+# 编辑器统一配置。
+#
+# ★ 刻意【不设】end_of_line —— 行尾由 .gitattributes 的 `* text=auto`
+#   配合各人本地的 core.autocrlf 决定（Windows 工作副本是 CRLF，索引里是 LF）。
+#   这里再写一遍会跟工作副本的行尾打架，制造「整文件重写」的假 diff。
+#   仓库曾经因为行尾混乱做过一次全库规范化（提交 1c84622），别再来一次。
+
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# JSON / YAML / MSBuild 项目文件按 2 空格，与仓库现有文件一致。
+[*.{json,yml,yaml,csproj,props,targets}]
+indent_size = 2
+
+# Markdown 的行尾双空格是有意义的分行标记，不能删。
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{ps1,psm1,py}]
+indent_size = 4
+
+[*.{sh,bash}]
+indent_size = 2

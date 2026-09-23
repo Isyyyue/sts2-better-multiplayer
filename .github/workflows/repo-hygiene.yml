@@ -1,0 +1,38 @@
+name: Repository hygiene
+
+# 为什么这里不编译、不跑测试：
+#
+# 本 Mod 编译需要游戏本体程序集（sts2.dll / GodotSharp.dll / 0Harmony.dll）与
+# BaseLib.dll，这些是第三方版权文件，**不能提交进仓库**，CI 上也拿不到。
+# 所以这里只做不需要游戏文件的静态检查 —— 版本号一致性、JSON 有效性、
+# 禁止提交二进制、CHANGELOG 覆盖、分支区间方向。
+#
+# 真正的构建与测试由维护者在装有游戏的机器上运行：
+#   dotnet test  tests/BetterMultiplayer.Tests.csproj -c Release
+#   dotnet build BetterMultiplayer.csproj            -c Release
+# 详见 docs/maintainer-handoff.md。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: 仓库卫生检查 / Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run repository checks
+        run: python tools/check-repo.py

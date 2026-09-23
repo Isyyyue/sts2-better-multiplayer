@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 创意工坊页面 / Steam Workshop page
+    url: https://steamcommunity.com/sharedfiles/filedetails/?id=3768337454
+    about: 更新说明、前置依赖与订阅入口 / Release notes, requirements, and subscription
+  - name: 维护者接手手册 / Maintainer handoff
+    url: https://github.com/Isyyyue/sts2-better-multiplayer/blob/main/docs/maintainer-handoff.md
+    about: 构建、双分支验证与发布流程 / Build, dual-branch verification, and release flow
+  - name: 架构说明 / Architecture notes
+    url: https://github.com/Isyyyue/sts2-better-multiplayer/blob/main/docs/architecture.md
+    about: 同步模型与模块划分 / Synchronization model and module layout

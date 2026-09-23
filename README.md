@@ -1,5 +1,10 @@
 # 更好的联机 / Better Multiplayer
 
+[![Steam 创意工坊](https://img.shields.io/badge/Steam-创意工坊-1b2838?logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3768337454)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Game](https://img.shields.io/badge/Slay%20the%20Spire%202-v0.107.1%20%7C%20public--beta-blue)](docs/maintainer-handoff.md)
+[![Version](https://img.shields.io/badge/version-0.6.5-informational)](CHANGELOG.md)
+
 《杀戮尖塔 2》中英双语联机增强 Mod。它保留官方好友联机，同时新增：
 
 > A bilingual Slay the Spire 2 mod that keeps official friend multiplayer and
@@ -66,6 +71,15 @@ dotnet test .\tests\BetterMultiplayer.Tests.csproj -c Release
 - 密码不会明文写入 Steam 大厅或日志。弱密码仍可能被离线猜测，建议至少使用 8 位混合字符。
 - 所有参与者必须安装相同版本的本 Mod 和 BaseLib，官方 Mod 一致性检查会负责拦截不匹配版本。
 - 帮助队友锻造会校验队友牌组序号、卡牌 ID 和升级等级；若选择期间牌组因其他操作改变，本次选择取消且不消耗篝火行动，避免升级错牌。
+
+## 相关文档 / Documentation
+
+- [变更日志 CHANGELOG.md](CHANGELOG.md) —— 各版本面向玩家的改动
+- [贡献指南 CONTRIBUTING.md](CONTRIBUTING.md) —— 环境搭建、构建测试、提交约定
+- [架构说明 docs/architecture.md](docs/architecture.md) —— 同步模型与模块划分
+- [维护者接手手册 docs/maintainer-handoff.md](docs/maintainer-handoff.md) —— 双分支验证与完整发布流程
+- [安全策略 SECURITY.md](SECURITY.md) —— 漏洞报告方式与安全面说明
+- [第三方声明 THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) —— 授权范围说明
 
 ## 开源许可 / License
 
