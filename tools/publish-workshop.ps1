@@ -188,6 +188,23 @@ $logText = Get-Content -LiteralPath $logPath -Raw
 $successText = "Successfully uploaded '更好的联机 / Better Multiplayer' to the workshop with id $WorkshopId!"
 $uploaderReportedSuccess = $uploadExitCode -eq 0 -and $logText.Contains($successText)
 
+# ★ 上传器明确报失败时，绝不能被下面的 API 验证"救回来"。
+#
+# 实测（2026-09-24，0.6.5）：日志以 k_EItemUpdateStatusInvalid + k_EResultTimeout 结束，
+# 但 Steam API 的 file_size / hcontent_file 已经变成新值——因为**内容确实传上去了**，
+# 卡住的是后面那一步「提交变更」（CommittingChanges 重试 60 次后转 Invalid）。
+#
+# 只看 file_size 会把这种情况判成"上传成功"，于是：
+#   工坊页面仍显示旧版本、玩家订阅到的还是旧版本，而发布记录里写着"已发布"。
+# 0.6.5 就是这么卡了两天，直到有玩家反馈才被发现。
+if ($logText.Contains('k_EItemUpdateStatusInvalid')) {
+    throw @"
+Uploader reported k_EItemUpdateStatusInvalid: the item was NOT committed. Exit=$uploadExitCode.
+Steam API may already show a new file_size/hcontent_file because the content upload
+succeeded - that does NOT mean the update is live. Check the live version, then retry.
+"@
+}
+
 # Steam can commit the update while the uploader times out waiting for the final callback.
 # Poll the published item before deciding whether a retry is necessary.
 $detailsAfter = $null
@@ -215,7 +232,12 @@ if (-not $remoteCommitVerified) {
 }
 
 if (-not $uploaderReportedSuccess) {
-    Write-Warning 'The uploader reported a timeout or non-success result, but Steam API confirms the new content was committed. Do not retry this upload.'
+    Write-Warning @'
+The uploader did not report success. Steam API shows a changed file_size /
+hcontent_file, but that only proves the CONTENT was transferred - it does not prove
+the item was committed. Open the Workshop page and confirm the displayed version
+before treating this release as live.
+'@
 }
 
 $recordDirectory = Join-Path $repoRoot 'artifacts\release-records'
