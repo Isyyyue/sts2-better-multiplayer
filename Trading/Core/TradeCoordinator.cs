@@ -514,20 +514,42 @@ internal static class TradeCoordinator
         session.Status = TradeSessionStatus.Committing;
         DiagnosticRecorder.RecordSessionSnapshot(session, "committing");
         BroadcastSnapshot(session);
-        TradeSessionSnapshot committed = session.Clone();
-        committed.Status = TradeSessionStatus.Committed;
 
-        if (!await TradeTransactionApplier.Apply(committed))
+        // ★ 从这里往下整段兜底。
+        //   一旦把状态设成 Committing 并广播出去，两端界面就都切到"正在校验并提交交易"了。
+        //   这一步之后的任何异常（比如 Apply 里某个游戏命令抛、或者 MarkHostCommit 裸读
+        //   NetService 失败）都会被 TaskHelper.RunSafely 吞掉——而它是本方法的调用方，
+        //   于是既没有 EndSession 也没有 CommitEvent，会话就**永远停在 Committing**，
+        //   玩家看到的就是截图里那种「界面卡在正在校验并提交交易，只能退出对局」。
+        //   所以这里必须自己兜住：异常也要把会话结束掉，让两端界面能退出去。
+        try
         {
-            Error(session.PlayerA, ModText.Token(TextKey.HostTradeApplyFailed));
-            Error(session.PlayerB, ModText.Token(TextKey.HostTradeApplyFailed));
+            TradeSessionSnapshot committed = session.Clone();
+            committed.Status = TradeSessionStatus.Committed;
+
+            if (!await TradeTransactionApplier.Apply(committed))
+            {
+                Error(session.PlayerA, ModText.Token(TextKey.HostTradeApplyFailed));
+                Error(session.PlayerB, ModText.Token(TextKey.HostTradeApplyFailed));
+                EndSession(session, TradeSessionStatus.Canceled);
+                return;
+            }
+
+            TradeStateStore.MarkHostCommit(committed);
+            DiagnosticRecorder.RecordSessionSnapshot(committed, "committed");
+            TradeNetwork.Broadcast(new CommitEvent { Snapshot = committed }, applyLocally: false);
+        }
+        catch (Exception ex)
+        {
+            BetterMultiplayerMod.Logger.Error(
+                $"Committing trade {session.SessionId} threw: {ex}");
+            string failed = ModText.Token(TextKey.HostTradeApplyFailed);
+            Error(session.PlayerA, failed);
+            Error(session.PlayerB, failed);
             EndSession(session, TradeSessionStatus.Canceled);
             return;
         }
 
-        TradeStateStore.MarkHostCommit(committed);
-        DiagnosticRecorder.RecordSessionSnapshot(committed, "committed");
-        TradeNetwork.Broadcast(new CommitEvent { Snapshot = committed }, applyLocally: false);
         RemoveSession(session);
         if (session.Location == TradeLocation.RestSite)
         {
