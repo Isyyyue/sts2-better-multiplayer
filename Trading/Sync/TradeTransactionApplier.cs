@@ -24,7 +24,12 @@ internal static class TradeTransactionApplier
 
     private static readonly HashSet<ulong> AppliedTransactions = [];
 
-    internal static async Task<bool> Apply(TradeSessionSnapshot snapshot)
+    internal static Task<bool> Apply(TradeSessionSnapshot snapshot) =>
+        Apply(snapshot, replayPickupEffects: true);
+
+    internal static async Task<bool> Apply(
+        TradeSessionSnapshot snapshot,
+        bool replayPickupEffects)
     {
         lock (AppliedTransactions)
         {
@@ -105,8 +110,8 @@ internal static class TradeTransactionApplier
                 playerB.Gold = finalGoldB;
             }
 
-            await Add(state, playerB, payloadA);
-            await Add(state, playerA, payloadB);
+            await Add(state, playerB, payloadA, replayPickupEffects);
+            await Add(state, playerA, payloadB, replayPickupEffects);
             if (snapshot.Location == TradeLocation.RestSite)
             {
                 TradeUsageTracker.Mark(snapshot.PlayerA);
@@ -164,7 +169,11 @@ internal static class TradeTransactionApplier
             await PotionCmd.Discard(potion);
     }
 
-    private static async Task Add(RunState state, Player target, TransferPayload payload)
+    private static async Task Add(
+        RunState state,
+        Player target,
+        TransferPayload payload,
+        bool replayPickupEffects)
     {
         foreach (SerializableCard serialized in payload.Cards)
         {
@@ -178,7 +187,13 @@ internal static class TradeTransactionApplier
         }
 
         foreach (SerializableRelic serialized in payload.Relics)
-            await RelicCmd.Obtain(RelicModel.FromSerializable(serialized), target);
+        {
+            RelicModel relic = RelicModel.FromSerializable(serialized);
+            if (replayPickupEffects)
+                await RelicCmd.Obtain(relic, target);
+            else
+                target.AddRelicInternal(relic, index: -1, silent: true);
+        }
 
         foreach (SerializablePotion serialized in payload.Potions)
             await PotionCmd.TryToProcure(PotionModel.FromSerializable(serialized), target);
@@ -193,7 +208,7 @@ internal static class TradeTransactionApplier
     {
         try
         {
-            await Add(state, player, payload);
+            await Add(state, player, payload, replayPickupEffects: false);
             BetterMultiplayerMod.Logger.Warn(
                 $"Rolled back the trade payload taken from player {player.NetId}.");
         }
@@ -204,4 +219,3 @@ internal static class TradeTransactionApplier
         }
     }
 }
-

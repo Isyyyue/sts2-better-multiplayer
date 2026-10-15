@@ -1,4 +1,7 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using MegaCrit.Sts2.Core.Commands;
+using MegaCrit.Sts2.Core.Entities.Players;
 using BetterMultiplayer.Config;
 
 namespace BetterMultiplayer.Tests;
@@ -18,6 +21,44 @@ public sealed class TradeReliabilityTests : IDisposable
         TradeRestSiteFlow.Reset();
     }
 
+    [Fact]
+    public void TransactionSupportsAuthorityOnlyPickupEffects()
+    {
+        MethodInfo add = typeof(TradeTransactionApplier).GetMethod(
+            "Add",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        MethodInfo addRelicInternal = typeof(Player).GetMethod(
+            "AddRelicInternal",
+            BindingFlags.Instance | BindingFlags.Public)!;
+        MethodBase[] calls = ReadAsyncCalls(add).ToArray();
+
+        Assert.Contains(calls, method =>
+            method.Name == addRelicInternal.Name &&
+            method.DeclaringType?.FullName == typeof(Player).FullName);
+    }
+
+    private static IEnumerable<MethodBase> ReadAsyncCalls(MethodInfo asyncMethod)
+    {
+        Type stateMachine = asyncMethod
+            .GetCustomAttribute<AsyncStateMachineAttribute>()!
+            .StateMachineType;
+        MethodInfo moveNext = stateMachine.GetMethod(
+            "MoveNext",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        byte[] il = moveNext.GetMethodBody()?.GetILAsByteArray() ?? [];
+
+        for (int i = 0; i + 4 < il.Length; i++)
+        {
+            if (il[i] is 0x28 or 0x6F)
+            {
+                int token = BitConverter.ToInt32(il, i + 1);
+                MethodBase? method = moveNext.Module.ResolveMethod(token);
+                if (method is not null)
+                    yield return method;
+                i += 4;
+            }
+        }
+    }
     private static void ResetConfig() =>
         BetterMultiplayerConfig.AllowDuplicateRelicsAfterTrade = false;
 

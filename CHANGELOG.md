@@ -15,6 +15,7 @@
 - 交易报价被拒绝后，「锁定报价」按钮不再永久灰着、界面不再停在等待状态。
 - 交易被拒的原因不再被紧随其后的状态更新覆盖，玩家能看到具体提示。
 - 交易结算中途出错时，已交出的物品会被回滚，不再永久丢失。
+- 修复特殊遗物触发获得效果时导致交易物品消失的问题。
 - 休息处交易界面不再在刚打开时就被判定为结束。
 
 ### 新增 / Added
@@ -24,6 +25,7 @@
 > Fixed "Lock Offer" staying disabled and the screen hanging after an offer was rejected.
 > Fixed the rejection reason being overwritten before the player could read it.
 > Fixed items being lost for good when a trade failed partway through settlement.
+> Fixed traded items disappearing when special relic pickup effects ran.
 > Fixed the Rest Site trade screen being treated as finished the moment it opened.
 > Added an "Allow duplicate Relics after trading" setting, off by default.
 

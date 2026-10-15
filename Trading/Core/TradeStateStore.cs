@@ -93,7 +93,10 @@ internal static class TradeStateStore
 
     private static async Task ApplyCommitAsync(TradeSessionSnapshot snapshot)
     {
-        bool success = await TradeTransactionApplier.Apply(snapshot);
+        // The host already ran pickup effects while committing. Clients only
+        // mirror the resulting relic instance; replaying effects there can
+        // open a second reward flow and fail the whole transaction.
+        bool success = await TradeTransactionApplier.Apply(snapshot, replayPickupEffects: false);
         if (snapshot.Location == TradeLocation.RestSite)
         {
             TradeRestSiteFlow.Complete(snapshot.PlayerA, success);
