@@ -1175,7 +1175,7 @@ internal sealed class TradeOverlay
     {
         try
         {
-            return RunManager.Instance.IsInProgress && RunManager.Instance.NetService.IsConnected;
+            return RunManager.Instance.IsInProgress && TradeNetwork.IsReady;
         }
         catch
         {
@@ -1323,4 +1323,3 @@ internal sealed class TradeOverlay
         return player?.Gold ?? 0;
     }
 }
-

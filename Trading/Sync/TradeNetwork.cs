@@ -7,7 +7,38 @@ namespace BetterMultiplayer.Trading.Sync;
 
 internal static class TradeNetwork
 {
-    internal static ulong LocalPlayerId => RunManager.Instance.NetService.NetId;
+    internal static ulong LocalPlayerId
+    {
+        get
+        {
+            try
+            {
+                return RunManager.Instance.NetService.NetId;
+            }
+            catch
+            {
+                // The overlay can outlive the network service during loading or teardown.
+                return 0;
+            }
+        }
+    }
+
+    internal static bool IsReady
+    {
+        get
+        {
+            try
+            {
+                INetGameService service = RunManager.Instance.NetService;
+                return service.IsConnected &&
+                       service.Type is NetGameType.Host or NetGameType.Client;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     /// <summary>
     /// 是否房主。
@@ -38,15 +69,21 @@ internal static class TradeNetwork
 
     internal static bool IsHostSender(ulong senderId)
     {
-        INetGameService service = RunManager.Instance.NetService;
-        return service.Type switch
+        try
         {
-            NetGameType.Host => senderId == service.NetId,
-            NetGameType.Client when service is NetClientGameService client => senderId == client.HostNetId,
-            _ => false
-        };
+            INetGameService service = RunManager.Instance.NetService;
+            return service.Type switch
+            {
+                NetGameType.Host => senderId == service.NetId,
+                NetGameType.Client when service is NetClientGameService client => senderId == client.HostNetId,
+                _ => false
+            };
+        }
+        catch
+        {
+            return false;
+        }
     }
-
     internal static void SendRequest(ICustomMessage request)
     {
         if (IsHost)

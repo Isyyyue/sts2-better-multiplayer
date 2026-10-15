@@ -179,6 +179,30 @@ public sealed class SurpriseModeTests : IDisposable
         }
     }
 
+    [Fact]
+    public void TradeNetworkProbesSurviveAMissingNetService()
+    {
+        RunManager manager = RunManager.Instance;
+        PropertyInfo netServiceProperty = typeof(RunManager).GetProperty(
+            "NetService",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?? throw new MissingMemberException(typeof(RunManager).FullName, "NetService");
+
+        object? saved = netServiceProperty.GetValue(manager);
+        try
+        {
+            netServiceProperty.SetValue(manager, null);
+
+            Assert.Equal(0UL, TradeNetwork.LocalPlayerId);
+            Assert.False(TradeNetwork.IsReady);
+            Assert.False(TradeNetwork.IsHostSender(123));
+        }
+        finally
+        {
+            netServiceProperty.SetValue(manager, saved);
+        }
+    }
+
     /// <summary>
     /// 回归：首次播种必须有真实的 RunManager.Launch 接线。
     /// 仅保留初始化 helper、但删掉 Harmony Postfix 调用，功能测试仍可能全绿；
