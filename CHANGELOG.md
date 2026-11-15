@@ -32,7 +32,7 @@
 
 ### 新增 / Added
 
-- 设置项「允许交易后重复遗物」（默认关闭）。原版规则下一笔交易若会让某一方持有两个同名遗物会被整笔拒绝，打开此项后放行。
+- 设置项「解除遗物交易限制」现在同时放行交易后的重复遗物。
 
 > Fixed "Lock Offer" staying disabled and the screen hanging after an offer was rejected.
 > Fixed the rejection reason being overwritten before the player could read it.

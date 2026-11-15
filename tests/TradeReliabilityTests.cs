@@ -69,10 +69,10 @@ public sealed class TradeReliabilityTests : IDisposable
         }
     }
     private static void ResetConfig() =>
-        BetterMultiplayerConfig.AllowDuplicateRelicsAfterTrade = false;
+        BetterMultiplayerConfig.UnlockRelicTrading = false;
 
     // ------------------------------------------------------------------
-    // 设置页的「允许交易后重复遗物」开关
+    // 「解除遗物交易限制」同时控制重复遗物
     // ------------------------------------------------------------------
 
     /// <summary>
@@ -88,7 +88,7 @@ public sealed class TradeReliabilityTests : IDisposable
     [Fact]
     public void TheSettingsSwitchAllowsDuplicateRelics()
     {
-        BetterMultiplayerConfig.AllowDuplicateRelicsAfterTrade = true;
+        BetterMultiplayerConfig.UnlockRelicTrading = true;
 
         Assert.True(TradeValidator.DuplicateRelicsAllowed());
     }
@@ -96,10 +96,10 @@ public sealed class TradeReliabilityTests : IDisposable
     [Fact]
     public void TurningTheSwitchBackOffRestoresTheOriginalRule()
     {
-        BetterMultiplayerConfig.AllowDuplicateRelicsAfterTrade = true;
+        BetterMultiplayerConfig.UnlockRelicTrading = true;
         Assert.True(TradeValidator.DuplicateRelicsAllowed());
 
-        BetterMultiplayerConfig.AllowDuplicateRelicsAfterTrade = false;
+        BetterMultiplayerConfig.UnlockRelicTrading = false;
         Assert.False(TradeValidator.DuplicateRelicsAllowed());
     }
 

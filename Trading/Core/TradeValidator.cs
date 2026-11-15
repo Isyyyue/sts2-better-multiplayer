@@ -130,7 +130,7 @@ internal static class TradeValidator
         }
     }
 
-    // 交易后是否允许某一方持有重复遗物。默认不允许（原版规则）。
+    // 解除遗物交易限制时，同时允许交易后出现重复遗物。
     //
     // 兜底理由和 CanTradeRelic 一样：清单里声明的 BaseLib 最低版本早于实际
     // 验证过的版本，配置类型可能加载失败。捕获后回落 false = 原版行为，
@@ -139,7 +139,7 @@ internal static class TradeValidator
     {
         try
         {
-            return BetterMultiplayerConfig.AllowDuplicateRelicsAfterTrade;
+            return BetterMultiplayerConfig.UnlockRelicTrading;
         }
         catch (Exception)
         {
@@ -207,7 +207,7 @@ internal static class TradeValidator
         }
 
         // 本模组默认沿用原版的"不重复持有"约束，所以一笔会让某方撞上已有遗物的
-        // 交易会被整笔拒绝。开关打开时跳过——注意两个 HashSet 的构造本身带副作用
+        // 交易会被整笔拒绝。解除遗物交易限制时跳过——注意两个 HashSet 的构造本身带副作用
         // （Add 会消耗元素），所以必须整段跳，不能只改 if 的条件。
         //
         // ★ 放行是安全的（2026-09-23 反编译核实，整条链路三处都不拦重复）：
