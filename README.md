@@ -3,7 +3,7 @@
 [![Steam 创意工坊](https://img.shields.io/badge/Steam-创意工坊-1b2838?logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3768337454)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Game](https://img.shields.io/badge/Slay%20the%20Spire%202-v0.113.1%20%7C%20public--beta-blue)](docs/maintainer-handoff.md)
-[![Version](https://img.shields.io/badge/version-0.7.0-informational)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.7.1-informational)](CHANGELOG.md)
 
 保留游戏原生好友联机，增加三项玩法：
 

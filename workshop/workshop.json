@@ -2,7 +2,7 @@
   "title": "更好的联机 / Better Multiplayer",
   "description": "[h1]更好的联机[/h1]\n保留游戏原生好友联机，并增加篝火物品交易、帮助队友锻造和商店金币交易。\n\n[h2]主要功能[/h2]\n[list]\n[*]使用游戏原生好友联机流程\n[*]在篝火交换卡牌、遗物和药水\n[*]消耗自己的篝火行动，为队友升级一张牌\n[*]在商店中与队友交换金币\n[/list]\n\n[h1]Better Multiplayer[/h1]\nKeeps the native friends-only multiplayer flow and adds Rest Site item trades, Smith for a Teammate, and gold trading at merchants.\n\n[h2]Features[/h2]\n[list]\n[*]Use the game's native friends multiplayer flow\n[*]Trade Cards, Relics, and Potions at Rest Sites\n[*]Spend your Rest Site action to upgrade a card for another player\n[*]Trade gold with another player at merchants\n[/list]",
   "visibility": "public",
-  "changeNote": "[h1]0.7.0 联机与交易大更新 / Multiplayer and Trade Overhaul[/h1]\n\n移除自定义房间密码流程，改用游戏原生好友联机；修复星系仪等遗物交易阻塞问题。\n\nRemoved the custom room-password flow in favor of native friends multiplayer; fixed Astrolabe-like relic trades blocking or losing the relic.",
+  "changeNote": "[h1]0.7.1 交易界面修复 / Trade UI Fixes[/h1]\n\n修复金币交易和遗物交易按钮无响应，并恢复官方按钮边框。\n\nFixed unresponsive gold and relic trade buttons and restored the official button borders.",
   "tags": [
     "Multiplayer",
     "Quality of Life"

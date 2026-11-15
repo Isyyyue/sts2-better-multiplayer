@@ -206,6 +206,7 @@ internal static class MerchantTradePatch
             FocusMode = Control.FocusModeEnum.All,
             MouseFilter = Control.MouseFilterEnum.Stop
         };
+        input.Ready += input.Enable;
         input.AddChild(button);
         button.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 

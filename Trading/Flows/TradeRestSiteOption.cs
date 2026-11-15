@@ -58,11 +58,9 @@ internal static class TradeRestSiteButtonLayoutPatch
         if (icon is null)
             return;
 
-        // The custom artwork is 4:3 while the game's icon slot is nearly square.
-        // Covering the slot removes the original yellow side strips; only a small
-        // amount of the artwork edge is cropped.
-        icon.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
-        icon.StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered;
+        // Keep the game's native icon sizing and border treatment. The custom
+        // artwork must not cover the option button's own hitbox or frame.
+        icon.MouseFilter = Control.MouseFilterEnum.Ignore;
     }
 }
 

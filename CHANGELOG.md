@@ -8,6 +8,19 @@
 
 ---
 
+## [0.7.1] - 2026-11-15
+
+### 修复 / Fixed
+
+- 修复商店金币交易按钮没有点击响应的问题。
+- 修复篝火遗物交易按钮没有点击响应的问题。
+- 恢复交易选项使用游戏官方边框和尺寸。
+- “解除遗物交易限制”现在同时包含交易后的重复遗物。
+
+> Fixed unresponsive gold and relic trade buttons.
+> Restored the game's official option borders and sizing.
+> The relic trading switch now also allows duplicate relics after trading.
+
 ## [0.7.0] - 2026-11-15
 
 ### 修复 / Fixed
