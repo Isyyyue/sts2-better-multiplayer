@@ -8,6 +8,16 @@
 
 ---
 
+## [0.7.2] - 2026-11-15
+
+### 修复 / Fixed
+
+- 修复官方角色背景资源被错误当作纹理加载，导致金币交易和遗物交易窗口点击后无法打开的问题。
+- 交易背景现在支持官方场景资源，并保持合适比例与官方边框。
+
+> Fixed the official character background resource type that prevented trade windows from opening.
+> Trade backgrounds now support the game's scene resources while preserving their proportions and borders.
+
 ## [0.7.1] - 2026-11-15
 
 ### 修复 / Fixed

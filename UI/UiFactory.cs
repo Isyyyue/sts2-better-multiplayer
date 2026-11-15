@@ -218,20 +218,25 @@ internal static class UiFactory
         if (string.IsNullOrWhiteSpace(resourcePath))
             return;
 
-        Texture2D? texture = GD.Load<Texture2D>(resourcePath);
-        if (texture is null)
+        Resource? resource = GD.Load<Resource>(resourcePath);
+        if (resource is null)
             return;
 
-        TextureRect image = new()
+        Node? backdrop = resource switch
         {
-            Texture = texture,
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Modulate = new Color(1f, 1f, 1f, 0.82f)
+            Texture2D texture => CreateCharacterTextureBackdrop(texture),
+            PackedScene scene => scene.Instantiate(),
+            _ => null
         };
-        image.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        root.AddChild(image);
+        if (backdrop is null)
+            return;
+
+        if (backdrop is Control control)
+        {
+            control.MouseFilter = Control.MouseFilterEnum.Ignore;
+            control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        }
+        root.AddChild(backdrop);
 
         ColorRect tint = new()
         {
@@ -241,6 +246,15 @@ internal static class UiFactory
         tint.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(tint);
     }
+
+    private static TextureRect CreateCharacterTextureBackdrop(Texture2D texture) => new()
+    {
+        Texture = texture,
+        ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+        StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+        MouseFilter = Control.MouseFilterEnum.Ignore,
+        Modulate = new Color(1f, 1f, 1f, 0.82f)
+    };
 
     internal static NBackButton CreateOfficialBackButton(Action onReleased)
     {
