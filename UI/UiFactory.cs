@@ -175,6 +175,9 @@ internal static class UiFactory
 
         Control background = CreateOfficialPaperBackground();
         background.MouseFilter = Control.MouseFilterEnum.Ignore;
+        // The character-select scene is the full-screen trade backdrop.
+        // Keep the paper only as the fallback when no character resource exists.
+        background.Visible = string.IsNullOrWhiteSpace(characterBackgroundPath);
         background.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         paper.AddChild(background);
 

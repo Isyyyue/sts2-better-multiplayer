@@ -8,6 +8,14 @@
 
 ---
 
+## [0.7.3] - 2026-11-15
+
+### 修复 / Fixed
+
+- 交易窗口现在显示本地角色的官方背景，不再被旧纸张面板覆盖。
+
+> Trade windows now show the local character's official backdrop instead of the old paper panel.
+
 ## [0.7.2] - 2026-11-15
 
 ### 修复 / Fixed
