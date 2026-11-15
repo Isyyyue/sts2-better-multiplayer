@@ -145,7 +145,8 @@ internal static class UiFactory
         Action onBack,
         out VBoxContainer body,
         out Label status,
-        out NBackButton backButton)
+        out NBackButton backButton,
+        string? characterBackgroundPath = null)
     {
         Control root = new()
         {
@@ -155,6 +156,7 @@ internal static class UiFactory
         };
         root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(CreateBlurredBackdrop());
+        AddCharacterBackdrop(root, characterBackgroundPath);
 
         MarginContainer safeArea = new();
         safeArea.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
@@ -209,6 +211,35 @@ internal static class UiFactory
         backButton = CreateOfficialBackButton(onBack);
         root.AddChild(backButton);
         return root;
+    }
+
+    private static void AddCharacterBackdrop(Control root, string? resourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(resourcePath))
+            return;
+
+        Texture2D? texture = GD.Load<Texture2D>(resourcePath);
+        if (texture is null)
+            return;
+
+        TextureRect image = new()
+        {
+            Texture = texture,
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1f, 1f, 1f, 0.82f)
+        };
+        image.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(image);
+
+        ColorRect tint = new()
+        {
+            Color = new Color(0.035f, 0.047f, 0.055f, 0.58f),
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        tint.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(tint);
     }
 
     internal static NBackButton CreateOfficialBackButton(Action onReleased)

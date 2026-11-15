@@ -53,12 +53,14 @@ internal sealed class TradeOverlay
     {
         _sourceParent = parent;
         _location = location;
+        string? characterBackgroundPath = GetLocalCharacterBackgroundPath();
         _root = UiFactory.CreateTexturedOverlay(
             ModText.Get(location == TradeLocation.RestSite ? TextKey.RestSiteTrade : TextKey.GoldTrade),
             HandleBack,
             out _body,
             out _status,
-            out _backButton);
+            out _backButton,
+            characterBackgroundPath);
         _root.Name = "BetterMultiplayerTradeOverlay";
         _root.TreeExiting += OnTreeExiting;
         _sourceParent.TreeExiting += OnSourceTreeExiting;
@@ -71,6 +73,21 @@ internal sealed class TradeOverlay
         if (_location == TradeLocation.Merchant ||
             !TradeUsageTracker.HasUsed(TradeNetwork.LocalPlayerId))
             StartAvailabilityAnnouncements();
+    }
+
+    private static string? GetLocalCharacterBackgroundPath()
+    {
+        Player? player = RunManager.Instance.State?.GetPlayer(TradeNetwork.LocalPlayerId);
+        object? character = player?.GetType()
+            .GetProperty("Character", System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(player);
+        return character?.GetType()
+            .GetProperty("CharacterSelectBg", System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(character) as string;
     }
 
     internal static void Show(Node parent, TradeLocation location)
