@@ -179,4 +179,35 @@ public sealed class RelicTradingConfigTests : IDisposable
         Assert.True(BetterMultiplayerConfig.CanTrade(new BlackStar()));   // 原版禁止但效果干净
         Assert.False(BetterMultiplayerConfig.CanTrade(new Byrdpip()));    // 原版禁止且有副作用
     }
+
+    [Fact]
+    public void EveryConcreteGameRelicCanBeEnumeratedAndClassified()
+    {
+        Type[] relicTypes = typeof(RelicModel).Assembly
+            .GetTypes()
+            .Where(type =>
+                type is { IsClass: true, IsAbstract: false } &&
+                typeof(RelicModel).IsAssignableFrom(type) &&
+                type.GetConstructor(Type.EmptyTypes) is not null)
+            .ToArray();
+        List<string> failures = [];
+
+        foreach (Type relicType in relicTypes)
+        {
+            try
+            {
+                RelicModel relic = (RelicModel)Activator.CreateInstance(relicType)!;
+                _ = TradeValidator.CanTradeRelic(relic);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{relicType.FullName}: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        Assert.True(
+            relicTypes.Length >= 300,
+            $"Expected at least 300 concrete relic types, got {relicTypes.Length}.");
+        Assert.Empty(failures);
+    }
 }

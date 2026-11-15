@@ -13,8 +13,8 @@
 
 | 依赖 | 来源 | 说明 |
 |---|---|---|
-| Slay the Spire 2 | Steam | 支持正式版 `v0.107.1` 与 `public-beta v0.111.0` |
-| BaseLib | [Steam 创意工坊 `3737335127`](https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127) | 最近验证 `v3.4.5` |
+| Slay the Spire 2 | Steam | 支持正式版 `v0.107.1` 与 `public-beta v0.113.1` |
+| BaseLib | [Steam 创意工坊 `3737335127`](https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127) | 最近验证 `v3.4.8` |
 | .NET SDK 9 | Microsoft | |
 
 游戏与 BaseLib 的**程序集**是第三方版权文件。仓库里只有本 Mod 的原创代码与素材，

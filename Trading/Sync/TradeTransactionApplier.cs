@@ -46,6 +46,8 @@ internal static class TradeTransactionApplier
         TransferPayload? payloadB = null;
         bool removedA = false;
         bool removedB = false;
+        List<RelicModel> addedRelicsA = [];
+        List<RelicModel> addedRelicsB = [];
 
         try
         {
@@ -110,8 +112,12 @@ internal static class TradeTransactionApplier
                 playerB.Gold = finalGoldB;
             }
 
-            await Add(state, playerB, payloadA, replayPickupEffects);
-            await Add(state, playerA, payloadB, replayPickupEffects);
+            // Insert both relics silently first. Pickup effects such as
+            // Astrolabe's card selection must not delay the commit broadcast.
+            addedRelicsA = await Add(state, playerB, payloadA);
+            addedRelicsB = await Add(state, playerA, payloadB);
+            if (replayPickupEffects)
+                _ = TaskHelper.RunSafely(ReplayPickupEffectsAfterCommit(addedRelicsA, addedRelicsB));
             if (snapshot.Location == TradeLocation.RestSite)
             {
                 TradeUsageTracker.Mark(snapshot.PlayerA);
@@ -169,12 +175,12 @@ internal static class TradeTransactionApplier
             await PotionCmd.Discard(potion);
     }
 
-    private static async Task Add(
+    private static async Task<List<RelicModel>> Add(
         RunState state,
         Player target,
-        TransferPayload payload,
-        bool replayPickupEffects)
+        TransferPayload payload)
     {
+        List<RelicModel> addedRelics = [];
         foreach (SerializableCard serialized in payload.Cards)
         {
             CardModel card = state.LoadCard(serialized, target);
@@ -189,14 +195,26 @@ internal static class TradeTransactionApplier
         foreach (SerializableRelic serialized in payload.Relics)
         {
             RelicModel relic = RelicModel.FromSerializable(serialized);
-            if (replayPickupEffects)
-                await RelicCmd.Obtain(relic, target);
-            else
-                target.AddRelicInternal(relic, index: -1, silent: true);
+            target.AddRelicInternal(relic, index: -1, silent: true);
+            addedRelics.Add(relic);
         }
 
         foreach (SerializablePotion serialized in payload.Potions)
             await PotionCmd.TryToProcure(PotionModel.FromSerializable(serialized), target);
+
+        return addedRelics;
+    }
+
+    private static async Task ReplayPickupEffectsAfterCommit(
+        IEnumerable<RelicModel> first,
+        IEnumerable<RelicModel> second)
+    {
+        // Let TradeCoordinator broadcast the committed snapshot first. This
+        // makes a waiting Astrolabe selection unable to hide the transferred
+        // relic from the other player.
+        await Task.Yield();
+        foreach (RelicModel relic in first.Concat(second))
+            await relic.AfterObtained();
     }
 
     // 回滚：把之前从这个玩家身上取下来的东西原样放回去。
@@ -208,7 +226,7 @@ internal static class TradeTransactionApplier
     {
         try
         {
-            await Add(state, player, payload, replayPickupEffects: false);
+            await Add(state, player, payload);
             BetterMultiplayerMod.Logger.Warn(
                 $"Rolled back the trade payload taken from player {player.NetId}.");
         }

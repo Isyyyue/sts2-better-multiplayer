@@ -2,17 +2,15 @@
 
 [![Steam 创意工坊](https://img.shields.io/badge/Steam-创意工坊-1b2838?logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3768337454)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Game](https://img.shields.io/badge/Slay%20the%20Spire%202-v0.107.1%20%7C%20public--beta-blue)](docs/maintainer-handoff.md)
-[![Version](https://img.shields.io/badge/version-0.6.5-informational)](CHANGELOG.md)
+[![Game](https://img.shields.io/badge/Slay%20the%20Spire%202-v0.113.1%20%7C%20public--beta-blue)](docs/maintainer-handoff.md)
+[![Version](https://img.shields.io/badge/version-0.7.0-informational)](CHANGELOG.md)
 
-《杀戮尖塔 2》中英双语联机增强 Mod。它保留官方好友联机，同时新增：
+《杀戮尖塔 2》中英双语联机增强 Mod。它保留官方好友联机，同时新增交易、协助锻造和共享金币功能：
 
 > A bilingual Slay the Spire 2 mod that keeps official friend multiplayer and
-> adds password rooms, Rest Site item trades, teammate smithing, and merchant
-> gold trading over Steam lobbies and relay.
+> adds Rest Site item trades, teammate smithing, and merchant gold trading.
 
-- 通过准确的房间名称和必填密码创建、加入公开房间，不显示公开房间列表。
-- 使用 Steam Lobby 与 Steam Datagram Relay，不需要端口映射、樱花穿透或自建服务器。
+- 房间创建、加入和网络连接使用游戏原生好友联机流程。
 - 篝火可交换卡牌、遗物和药水；每名玩家每个篝火只能成功交易一次，成交后仍可休息或锻造。
 - 篝火可选择一名队友并使用官方锻造界面为其升级一张牌；消耗发起者自己的篝火行动，队友不消耗行动。
 - 商店可反复交换金币，每笔由双方同时确认。
@@ -22,9 +20,9 @@
 
 ## 环境
 
-- Slay the Spire 2（Steam 正式版 `v0.107.1` 与 `public-beta v0.111.0`；发布前必须分别验证）
+- Slay the Spire 2（Steam 正式版 `v0.107.1` 与 `public-beta v0.113.1`；发布前必须分别验证）
 - .NET SDK 9
-- BaseLib（Steam 创意工坊物品 `3737335127`；最近验证 `v3.4.5`）
+- BaseLib（Steam 创意工坊物品 `3737335127`；最近验证 `v3.4.8`）
 
 项目默认使用本机路径 `E:/steam/steam/steamapps/common/Slay the Spire 2`。其他电脑可在构建时传入 `STS2Path` 和 `BaseLibPath`。
 

@@ -8,6 +8,18 @@
 
 ---
 
+## [0.7.0] - 2026-11-15
+
+### 修复 / Fixed
+
+- 移除自定义房间名、密码和公开大厅入口，恢复使用游戏原生好友联机流程。
+- 修复星系仪等会等待选牌的遗物在交易提交前阻塞、导致接收方收不到遗物的问题。
+- 全量检查当前游戏程序集中的遗物交易判定。
+
+> Removed the custom room-name, password, and public-lobby flow in favor of the game's native friends multiplayer.
+> Fixed Astrolabe-like relic effects blocking trade commits before the receiver got the relic.
+> Added full relic classification coverage against the current game assembly.
+
 ## [0.6.5] - 2026-09-23
 
 ### 修复 / Fixed
@@ -120,5 +132,6 @@
 
 ---
 
-[未发布]: https://github.com/Isyyyue/sts2-better-multiplayer/compare/v0.6.5...HEAD
+[未发布]: https://github.com/Isyyyue/sts2-better-multiplayer/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Isyyyue/sts2-better-multiplayer/releases/tag/v0.7.0
 [0.6.5]: https://github.com/Isyyyue/sts2-better-multiplayer/releases/tag/v0.6.5

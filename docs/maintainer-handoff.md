@@ -16,7 +16,7 @@
 
 ## 代码地图
 
-- `Lobby/`：Steam 公共大厅、房间名、Steam Lobby 补丁和房间生命周期。
+- `Lobby/`：保留的原生联机兼容辅助代码；自定义房间名、密码和公开大厅补丁已移除。
 - `Diagnostics/`：玩家主动提交的固定结构诊断、多人关联信息、交易/锻牌时序和 Sentry 传输。
 - `Security/`：PBKDF2/HMAC 密码证明。
 - `Trading/`：Mod 消息与 Steam 中继、房主权威交易状态机、篝火/商店补丁和交易界面。
@@ -34,8 +34,8 @@
 
 - 游戏路径：`D:\Steam\steamapps\common\Slay the Spire 2`
 - Steam 分支：`public-beta`
-- 游戏版本：`v0.111.0`
-- BaseLib：`v3.4.5`
+- 游戏版本：`v0.113.1`（2026-11-15 本机核验）
+- BaseLib：`v3.4.8`（2026-11-15 本机核验）
 - .NET SDK：`9.0.317`
 - 源码基线：`c1083cbdf8c51f84aa6ca0bc21cb178b9c718820`
 - Release 构建：0 警告、0 错误。
@@ -50,7 +50,7 @@ Workshop 同时声明支持 Steam 正式版与 `public-beta`，因此发布证�
 | Steam 分支 | 游戏版本 | 参考 build ID | 发布要求 |
 | --- | --- | --- | --- |
 | `public` | `v0.107.1` | `23811903` | 完整测试、无增量 Release 构建、真实启动 |
-| `public-beta` | `v0.111.0` | `24724944` | 完整测试、无增量 Release 构建、真实启动 |
+| `public-beta` | `v0.113.1` | `26660232` | 完整测试、无增量 Release 构建、真实启动 |
 
 Steam 一次只保留当前选择的分支。切换前应把每个分支的 `data_sts2_windows_x86_64` 复制到仓库外的只读参考目录，并记录 app manifest build ID、`sts2.dll` SHA-256、BaseLib 版本与 SHA-256。游戏程序集和 BaseLib DLL 不得提交。最终 Workshop DLL 使用最低支持版本 `public v0.107.1` 构建；较新分支必须通过兼容测试和真实启动，避免编译时意外引用测试版独有 API。
 
@@ -62,7 +62,7 @@ Steam 一次只保留当前选择的分支。切换前应把每个分支的 `dat
 $baseLibPath = 'D:\Steam\steamapps\workshop\content\2868840\3737335127\BaseLib\BaseLib.dll'
 $branches = @(
   @{ Name = 'public'; Path = 'E:\Dev\Reference\STS2\public-0.107.1' },
-  @{ Name = 'public-beta'; Path = 'E:\Dev\Reference\STS2\public-beta-0.111.0' }
+  @{ Name = 'public-beta'; Path = 'E:\Dev\Reference\STS2\public-beta-0.113.1' }
 )
 
 foreach ($branch in $branches) {

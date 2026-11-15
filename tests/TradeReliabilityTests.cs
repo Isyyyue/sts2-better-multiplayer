@@ -52,7 +52,16 @@ public sealed class TradeReliabilityTests : IDisposable
             if (il[i] is 0x28 or 0x6F)
             {
                 int token = BitConverter.ToInt32(il, i + 1);
-                MethodBase? method = moveNext.Module.ResolveMethod(token);
+                MethodBase? method = null;
+                try
+                {
+                    method = moveNext.Module.ResolveMethod(token);
+                }
+                catch (ArgumentException)
+                {
+                    // Some async state-machine operands are fields/strings,
+                    // not method tokens; skip those call-shaped bytes.
+                }
                 if (method is not null)
                     yield return method;
                 i += 4;

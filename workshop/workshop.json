@@ -1,16 +1,16 @@
 {
   "title": "更好的联机 / Better Multiplayer",
-  "description": "[h1]更好的联机[/h1]\n保留官方好友联机，并增加密码房间、篝火物品交易、帮助队友锻造和商店金币交易。连接使用 Steam 大厅与中继，无需端口映射或第三方内网穿透。\n\n[h2]主要功能[/h2]\n[list]\n[*]通过准确的房间名称和密码与非 Steam 好友联机\n[*]在篝火交换卡牌、遗物和药水\n[*]消耗自己的篝火行动，为队友升级一张牌\n[*]在商店中与队友交换金币\n[*]在多人菜单中一键发送固定结构的诊断反馈\n[/list]\n所有玩家必须安装本 Mod、BaseLib，并使用相同版本。掉线后请由房主重新创建房间并选择“读档多人游戏”。\n\n[h2]诊断反馈与隐私[/h2]\n只有玩家主动点击“发送反馈”时才会上传一次固定结构的诊断。诊断可包含平台账号 ID、大厅 ID、参与者及其角色、交易与协助锻牌的参与双方和消息时序，以及报告者本机加载的 Mod ID 与版本；不会获取其他玩家电脑上的 Mod 环境。诊断不包含玩家昵称、房间名称、密码、IP 字段、本机路径、截图、存档、原始日志或玩家输入文本。\n\n[h1]Better Multiplayer[/h1]\nKeeps the official friends-only multiplayer flow and adds password rooms, Rest Site item trades, Smith for a Teammate, and gold trading at merchants. Connections use Steam lobbies and relay, so no port forwarding or third-party tunneling is required.\n\n[h2]Features[/h2]\n[list]\n[*]Play with non-friends by entering the exact room name and password\n[*]Trade Cards, Relics, and Potions at Rest Sites\n[*]Spend your Rest Site action to upgrade a card for another player\n[*]Trade gold with another player at merchants\n[*]Send fixed-shape diagnostic feedback with one click from the multiplayer menu\n[/list]\nEvery player needs this mod, BaseLib, and the same mod version. After a disconnect, the host must create a new room and choose Load Multiplayer Run.\n\n[h2]Diagnostic Feedback & Privacy[/h2]\nA fixed-shape diagnostic is uploaded only when the player clicks Send Feedback. It may include platform account and lobby IDs, participants and character IDs, the parties and message timing for trades and Smith for a Teammate, and mod IDs and versions loaded on the reporting device; it does not obtain other players' mod environments. It excludes player names, room names, passwords, IP fields, local paths, screenshots, saves, raw logs, and player-entered text.\n\n[h2]前置 / Requirement[/h2]\n[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3737335127]BaseLib[/url]\n\n[h2]开源[/h2]\n本 Mod 的原创源代码与原创 Mod 素材已在 GitHub 以 MIT License 开源，欢迎查看源代码、提交问题和参与改进。\n[url=https://github.com/Isyyyue/sts2-better-multiplayer]GitHub 源代码仓库[/url]\n\n[h2]Open Source[/h2]\nThis mod's original source code and original mod artwork are open source on GitHub under the MIT License. You can review the source, report issues, and contribute improvements.\n[url=https://github.com/Isyyyue/sts2-better-multiplayer]GitHub Source Repository[/url]",
+  "description": "[h1]更好的联机[/h1]\n保留游戏原生好友联机，并增加篝火物品交易、帮助队友锻造和商店金币交易。\n\n[h2]主要功能[/h2]\n[list]\n[*]使用游戏原生好友联机流程\n[*]在篝火交换卡牌、遗物和药水\n[*]消耗自己的篝火行动，为队友升级一张牌\n[*]在商店中与队友交换金币\n[/list]\n\n[h1]Better Multiplayer[/h1]\nKeeps the native friends-only multiplayer flow and adds Rest Site item trades, Smith for a Teammate, and gold trading at merchants.\n\n[h2]Features[/h2]\n[list]\n[*]Use the game's native friends multiplayer flow\n[*]Trade Cards, Relics, and Potions at Rest Sites\n[*]Spend your Rest Site action to upgrade a card for another player\n[*]Trade gold with another player at merchants\n[/list]",
   "visibility": "public",
-  "changeNote": "[h1]0.6.5 交易修复 / Trade Fix[/h1]\n\n修复交易后遗物和牌消失的问题。\n\nFixed relics and cards disappearing after trades.",
+  "changeNote": "[h1]0.7.0 联机与交易大更新 / Multiplayer and Trade Overhaul[/h1]\n\n移除自定义房间密码流程，改用游戏原生好友联机；修复星系仪等遗物交易阻塞问题。\n\nRemoved the custom room-password flow in favor of native friends multiplayer; fixed Astrolabe-like relic trades blocking or losing the relic.",
   "tags": [
     "Multiplayer",
     "Quality of Life"
   ],
-  "dependencies": [
-    3737335127
-  ],
   "contentDescriptors": [],
   "minBranch": "public",
-  "maxBranch": "public-beta"
+  "maxBranch": "public-beta",
+  "dependencies": [
+    3737335127
+  ]
 }
